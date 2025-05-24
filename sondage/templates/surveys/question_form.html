@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Modifier{% else %}Ajouter{% endif %} une question - Sondage App{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'surveys:survey_list' %}">Mes sondages</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'surveys:survey_detail' survey.pk %}">{{ survey.title }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{% if form.instance.pk %}Modifier{% else %}Ajouter{% endif %} une question</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="card shadow">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">
+            <i class="fas fa-{% if form.instance.pk %}edit{% else %}plus-circle{% endif %}"></i> 
+            {% if form.instance.pk %}Modifier{% else %}Ajouter{% endif %} une question
+        </h4>
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" id="question-form">
+            {% csrf_token %}
+            {% if form.instance.pk %}
+            <input type="hidden" name="question_id" value="{{ question.id }}">
+            {% endif %}
+            
+            <div class="mb-3">
+                <label for="id_text" class="form-label">Texte de la question *</label>
+                <input type="text" name="text" value="{{ form.text.value|default:'' }}" class="form-control {% if form.text.errors %}is-invalid{% endif %}" id="id_text" required>
+                {% if form.text.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.text.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="id_question_type" class="form-label">Type de question *</label>
+                    <select name="question_type" class="form-select {% if form.question_type.errors %}is-invalid{% endif %}" id="id_question_type" required>
+                        <option value="" disabled {% if not form.question_type.value %}selected{% endif %}>Choisir un type</option>
+                        <option value="single" {% if form.question_type.value == 'single' %}selected{% endif %}>Choix unique</option>
+                        <option value="multiple" {% if form.question_type.value == 'multiple' %}selected{% endif %}>Choix multiple</option>
+                        <option value="text" {% if form.question_type.value == 'text' %}selected{% endif %}>Texte libre</option>
+                        <option value="scale" {% if form.question_type.value == 'scale' %}selected{% endif %}>Échelle</option>
+                    </select>
+                    {% if form.question_type.errors %}
+                    <div class="invalid-feedback">
+                        {% for error in form.question_type.errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="id_order" class="form-label">Ordre</label>
+                    <input type="number" name="order" value="{{ form.order.value|default:'0' }}" class="form-control {% if form.order.errors %}is-invalid{% endif %}" id="id_order" min="0">
+                    {% if form.order.errors %}
+                    <div class="invalid-feedback">
+                        {% for error in form.order.errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="form-text">L'ordre détermine la position de cette question dans le sondage.</div>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <div class="form-check">
+                        <input type="checkbox" name="required" {% if form.required.value %}checked{% endif %} class="form-check-input" id="id_required">
+                        <label class="form-check-label" for="id_required">Question obligatoire</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="options-container" class="mb-3 {% if form.question_type.value != 'single' and form.question_type.value != 'multiple' %}d-none{% endif %}">
+                <h5>Options de réponse</h5>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> Ajoutez des options de réponse pour cette question.
+                </div>
+                
+                <!-- Management form pour le formset - CRUCIAL pour le traitement des formsets -->
+                {{ options_formset.management_form }}
+                <!-- Affichage du nombre total de formulaires dans le formset pour débogage -->
+                <p class="small text-muted">Formulaires dans le formset: Initial: {{ options_formset.initial_form_count }} | Total: {{ options_formset.total_form_count }}</p>
+                <div id="formset-container">
+                    {% for option_form in options_formset %}
+                    <div class="option-form mb-3 border-bottom pb-3">
+                        {{ option_form.id }}
+                        <!-- ID de l'option pour la mise à jour -->
+                        <input type="hidden" name="option_id_{{ forloop.counter0 }}" value="{{ option_form.instance.pk }}" />
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Texte de l'option</label>
+                                <input type="text" name="option_text_{{ forloop.counter0 }}" value="{{ option_form.text.value|default:'' }}" class="form-control" placeholder="Texte de l'option">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Ordre</label>
+                                <input type="number" name="option_order_{{ forloop.counter0 }}" value="{{ option_form.order.value|default:forloop.counter0 }}" class="form-control" min="0">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Valeur numérique</label>
+                                <input type="number" name="option_numeric_value_{{ forloop.counter0 }}" value="{{ option_form.numeric_value.value|default:'' }}" class="form-control">
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-check mt-4">
+                                    <input type="checkbox" name="option_is_default_{{ forloop.counter0 }}" id="option_is_default_{{ forloop.counter0 }}" {% if option_form.is_default.value %}checked{% endif %} class="form-check-input">
+                                    <label class="form-check-label" for="option_is_default_{{ forloop.counter0 }}">Par défaut</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Image (optionnelle)</label>
+                                <input type="file" name="{{ option_form.image.html_name }}" class="form-control">
+                                {% if option_form.instance.image %}
+                                <div class="mt-2">
+                                    <img src="{{ option_form.instance.image.url }}" alt="Option image" class="img-thumbnail" style="max-width: 100px;">
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end justify-content-end">
+                                {% if option_form.instance.pk %}
+                                <div class="form-check">
+                                    <input type="checkbox" name="option_delete_{{ forloop.counter0 }}" id="option_delete_{{ forloop.counter0 }}" class="form-check-input delete-checkbox">
+                                    <label class="form-check-label" for="option_delete_{{ forloop.counter0 }}">Supprimer cette option</label>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'surveys:survey_detail' survey.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Annuler
+                </a>
+                <button type="submit" class="btn btn-primary" id="submitButton">
+                    <i class="fas fa-save"></i> {% if form.instance.pk %}Mettre à jour{% else %}Ajouter{% endif %}
+                </button>
+            </div>
+            
+            <!-- Champ caché pour indiquer que le formulaire a été soumis via le bouton -->
+            <input type="hidden" name="submit_action" value="save_with_options" id="submit_action">
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const questionTypeSelect = document.getElementById('id_question_type');
+    const optionsContainer = document.getElementById('options-container');
+    const submitButton = document.getElementById('submitButton');
+    const formElement = submitButton.closest('form');
+    
+    // Afficher/masquer les options en fonction du type de question
+    questionTypeSelect.addEventListener('change', function() {
+        if (this.value === 'single' || this.value === 'multiple') {
+            optionsContainer.classList.remove('d-none');
+        } else {
+            optionsContainer.classList.add('d-none');
+        }
+    });
+    
+    // Validation du formulaire avant soumission
+    formElement.addEventListener('submit', function(e) {
+        // Vérifier le type de question
+        const questionType = questionTypeSelect.value;
+        
+        // Si c'est un type qui nécessite des options
+        if (questionType === 'single' || questionType === 'multiple') {
+            // Vérifier qu'au moins une option a été remplie
+            let hasOptions = false;
+            
+            // Vérifier d'abord si la question a déjà des options existantes
+            const hasExistingOptions = {% if has_options %} true {% else %} false {% endif %};
+            
+            // Si la question a déjà des options, on considère que c'est valide
+            if (hasExistingOptions) {
+                hasOptions = true;
+            } else {
+                // Sinon, on vérifie si l'utilisateur a ajouté de nouvelles options
+                const optionTextInputs = document.querySelectorAll('input[name^="option_text_"]');
+                
+                optionTextInputs.forEach(function(input) {
+                    if (input.value.trim() !== '') {
+                        hasOptions = true;
+                    }
+                });
+            }
+            
+            if (!hasOptions) {
+                e.preventDefault(); // Empêcher la soumission du formulaire
+                alert('Veuillez ajouter au moins une option de réponse pour cette question.');
+                return false;
+            }
+        }
+        
+        // Si tout est valide, soumettre le formulaire
+        return true;
+    });
+});
+</script>
+{% endblock %}

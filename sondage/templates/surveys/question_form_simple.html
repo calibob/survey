@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Modifier{% else %}Ajouter{% endif %} une question - Sondage App{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'surveys:survey_list' %}">Mes sondages</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'surveys:survey_detail' survey.pk %}">{{ survey.title }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{% if form.instance.pk %}Modifier{% else %}Ajouter{% endif %} une question</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="card shadow">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">
+            <i class="fas fa-{% if form.instance.pk %}edit{% else %}plus-circle{% endif %}"></i> 
+            {% if form.instance.pk %}Modifier{% else %}Ajouter{% endif %} une question
+        </h4>
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <!-- Formulaire principal de la question -->
+            <div class="mb-3">
+                <label for="id_text" class="form-label">Texte de la question *</label>
+                <input type="text" name="text" value="{{ form.text.value|default:'' }}" class="form-control {% if form.text.errors %}is-invalid{% endif %}" id="id_text" required>
+                {% if form.text.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.text.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="id_question_type" class="form-label">Type de question *</label>
+                    <select name="question_type" class="form-select {% if form.question_type.errors %}is-invalid{% endif %}" id="id_question_type" required>
+                        <option value="" disabled {% if not form.question_type.value %}selected{% endif %}>Choisir un type</option>
+                        <option value="single" {% if form.question_type.value == 'single' %}selected{% endif %}>Choix unique</option>
+                        <option value="multiple" {% if form.question_type.value == 'multiple' %}selected{% endif %}>Choix multiple</option>
+                        <option value="text" {% if form.question_type.value == 'text' %}selected{% endif %}>Texte libre</option>
+                        <option value="scale" {% if form.question_type.value == 'scale' %}selected{% endif %}>Échelle</option>
+                    </select>
+                    {% if form.question_type.errors %}
+                    <div class="invalid-feedback">
+                        {% for error in form.question_type.errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="id_order" class="form-label">Ordre</label>
+                    <input type="number" name="order" value="{{ form.order.value|default:'0' }}" class="form-control {% if form.order.errors %}is-invalid{% endif %}" id="id_order" min="0">
+                    {% if form.order.errors %}
+                    <div class="invalid-feedback">
+                        {% for error in form.order.errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="form-text">L'ordre détermine la position de cette question dans le sondage.</div>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <div class="form-check">
+                        <input type="checkbox" name="required" {% if form.required.value %}checked{% endif %} class="form-check-input" id="id_required">
+                        <label class="form-check-label" for="id_required">Question obligatoire</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section des options de réponse (pour les types à choix) -->
+            <div id="options-container" class="mb-3 {% if form.question_type.value != 'single' and form.question_type.value != 'multiple' %}d-none{% endif %}">
+                <h5>Options de réponse</h5>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> Ajoutez des options de réponse pour cette question.
+                </div>
+                
+                <div id="options-list">
+                    <!-- Option template -->
+                    <div class="option-template d-none">
+                        <div class="option-row mb-3 border-bottom pb-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label">Texte de l'option</label>
+                                    <input type="text" name="option_text" class="form-control option-text">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Ordre</label>
+                                    <input type="number" name="option_order" class="form-control option-order" value="0">
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="form-check mt-4">
+                                        <input type="checkbox" name="option_is_default" class="form-check-input option-default">
+                                        <label class="form-check-label">Valeur par défaut</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-outline-danger remove-option mt-4">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Container for dynamic options -->
+                    <div id="dynamic-options"></div>
+                    
+                    <button type="button" id="add-option" class="btn btn-outline-success">
+                        <i class="fas fa-plus"></i> Ajouter une option
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Affichage des erreurs générales -->
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% url 'surveys:survey_detail' survey.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Annuler
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> {% if form.instance.pk %}Mettre à jour{% else %}Ajouter{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const questionTypeSelect = document.getElementById('id_question_type');
+    const optionsContainer = document.getElementById('options-container');
+    const dynamicOptions = document.getElementById('dynamic-options');
+    const addOptionBtn = document.getElementById('add-option');
+    
+    // Compter les options
+    let optionCount = 0;
+    
+    // Fonction pour ajouter une option
+    function addOption() {
+        const template = document.querySelector('.option-template').cloneNode(true);
+        template.classList.remove('option-template', 'd-none');
+        
+        // Mettre à jour les noms des champs avec l'index
+        const inputs = template.querySelectorAll('input');
+        inputs.forEach(input => {
+            if (input.name === 'option_text') {
+                input.name = `option_text`;
+                input.id = `option_text_${optionCount}`;
+            } else if (input.name === 'option_order') {
+                input.name = `option_order`;
+                input.id = `option_order_${optionCount}`;
+                input.value = optionCount;
+            } else if (input.name === 'option_is_default') {
+                input.name = `option_is_default_${optionCount}`;
+                input.id = `option_is_default_${optionCount}`;
+            }
+        });
+        
+        // Ajouter un gestionnaire d'événement pour le bouton de suppression
+        const removeBtn = template.querySelector('.remove-option');
+        removeBtn.addEventListener('click', function() {
+            template.remove();
+        });
+        
+        dynamicOptions.appendChild(template);
+        optionCount++;
+    }
+    
+    // Ajouter une option quand on clique sur le bouton
+    addOptionBtn.addEventListener('click', addOption);
+    
+    // Afficher/masquer les options en fonction du type de question
+    questionTypeSelect.addEventListener('change', function() {
+        if (this.value === 'single' || this.value === 'multiple') {
+            optionsContainer.classList.remove('d-none');
+            
+            // S'assurer qu'il y a au moins une option si c'est un type à choix
+            if (dynamicOptions.children.length === 0) {
+                addOption();
+                addOption();
+            }
+        } else {
+            optionsContainer.classList.add('d-none');
+        }
+    });
+    
+    // Validation du formulaire avant soumission
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const questionType = questionTypeSelect.value;
+        
+        // Si c'est un type qui nécessite des options
+        if ((questionType === 'single' || questionType === 'multiple') && dynamicOptions.children.length === 0) {
+            e.preventDefault();
+            alert('Veuillez ajouter au moins une option de réponse pour cette question.');
+            return false;
+        }
+        
+        return true;
+    });
+    
+    // Ajouter deux options par défaut si le type est à choix
+    if (questionTypeSelect.value === 'single' || questionTypeSelect.value === 'multiple') {
+        addOption();
+        addOption();
+    }
+});
+</script>
+{% endblock %}

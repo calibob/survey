@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ survey.title }} - Sondage App{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'surveys:survey_list' %}">Mes sondages</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ survey.title }}</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header bg-primary text-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="mb-0"><i class="fas fa-poll"></i> {{ survey.title }}</h4>
+            <div>
+                <a href="{% url 'surveys:survey_results' survey.pk %}" class="btn btn-info btn-sm me-2">
+                    <i class="fas fa-chart-bar"></i> Résultats
+                </a>
+                <a href="{% url 'surveys:survey_update' survey.pk %}" class="btn btn-light btn-sm me-2">
+                    <i class="fas fa-edit"></i> Modifier
+                </a>
+                <form method="post" action="{% url 'surveys:survey_archive' survey.pk %}" class="d-inline me-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="btn btn-secondary btn-sm">
+                        {% if survey.is_archived %}
+                            <i class="fas fa-box-open"></i> Désarchiver
+                        {% else %}
+                            <i class="fas fa-archive"></i> Archiver
+                        {% endif %}
+                    </button>
+                </form>
+                <a href="{% url 'surveys:survey_delete' survey.pk %}" class="btn btn-danger btn-sm">
+                    <i class="fas fa-trash"></i> Supprimer
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8">
+                <h5>Description</h5>
+                <p>{{ survey.description }}</p>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h5 class="card-title">Informations</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                                <span>Statut</span>
+                                <span>
+                                    {% if survey.is_published %}
+                                    <span class="badge bg-success">Publié</span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">Brouillon</span>
+                                    {% endif %}
+                                </span>
+                            </li>
+                            <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                                <span>Date de création</span>
+                                <span>{{ survey.created_at|date:"d/m/Y H:i" }}</span>
+                            </li>
+                            <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                                <span>Questions</span>
+                                <span>{{ questions|length }}</span>
+                            </li>
+                            <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                                <span>Réponses</span>
+                                <div>
+                                    <a href="{% url 'responses:response_list' survey.pk %}" class="text-decoration-none">
+                                        {{ survey.responses.count }} réponse(s)
+                                    </a>
+                                    {% if survey.responses.count > 0 %}
+                                    <a href="{% url 'surveys:survey_results' survey.pk %}" class="ms-2 badge bg-info text-white text-decoration-none">
+                                        <i class="fas fa-chart-bar"></i> Analyser
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if survey.is_published %}
+        <div class="mt-3">
+            <div class="alert alert-success d-flex align-items-center justify-content-between">
+                <div>
+                    <i class="fas fa-link me-2"></i> Lien pour participer :
+                    <span class="fw-bold">{{ request.scheme }}://{{ request.get_host }}{% url 'surveys:survey_respond' survey.pk %}</span>
+                </div>
+                <button class="btn btn-sm btn-outline-success" onclick="copyToClipboard('{{ request.scheme }}://{{ request.get_host }}{% url 'surveys:survey_respond' survey.pk %}')">
+                    <i class="fas fa-copy"></i> Copier
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <div class="mt-3">
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i> Ce sondage est en mode brouillon et n'est pas visible par les autres utilisateurs.
+                Pour le publier, <a href="{% url 'surveys:survey_update' survey.pk %}">modifiez-le</a> et cochez l'option "Publier ce sondage".
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-header bg-primary text-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="mb-0"><i class="fas fa-list"></i> Questions</h4>
+            <a href="{% url 'surveys:question_add' survey.pk %}" class="btn btn-light btn-sm">
+                <i class="fas fa-plus"></i> Ajouter une question
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if questions %}
+        <div class="accordion" id="questionsAccordion">
+            {% for question in questions %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading{{ question.id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ question.id }}" aria-expanded="false" aria-controls="collapse{{ question.id }}">
+                        <div class="w-100 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="me-2">{{ forloop.counter }}.</span> {{ question.text }}
+                                {% if question.required %}<span class="text-danger">*</span>{% endif %}
+                            </div>
+                            <div>
+                                <span class="badge bg-info text-white">{{ question.get_question_type_display }}</span>
+                            </div>
+                        </div>
+                    </button>
+                </h2>
+                <div id="collapse{{ question.id }}" class="accordion-collapse collapse" aria-labelledby="heading{{ question.id }}" data-bs-parent="#questionsAccordion">
+                    <div class="accordion-body">
+                        <div class="d-flex justify-content-between mb-3">
+                            <div>
+                                <p class="mb-1">Type: <strong>{{ question.get_question_type_display }}</strong></p>
+                                <p class="mb-1">Obligatoire: <strong>{{ question.required|yesno:"Oui,Non" }}</strong></p>
+                                <p class="mb-0">Ordre: <strong>{{ question.order }}</strong></p>
+                            </div>
+                            <div>
+                                <a href="{% url 'surveys:question_update' question.pk %}" class="btn btn-outline-primary">
+                                    <i class="fas fa-edit"></i> Modifier
+                                </a>
+                            </div>
+                        </div>
+                        
+                        {% if question.question_type == 'single' or question.question_type == 'multiple' %}
+                            <h6>Options</h6>
+                            {% with options=question.options.all %}
+                                {% if options %}
+                                <ul class="list-group">
+                                    {% for option in options %}
+                                    <li class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>{{ option.text }}</span>
+                                            <span class="text-muted small">Ordre: {{ option.order }}</span>
+                                        </div>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i> Aucune option n'a été définie pour cette question.
+                                    <a href="{% url 'surveys:question_update' question.pk %}">Ajouter des options</a>
+                                </div>
+                                {% endif %}
+                            {% endwith %}
+                        {% elif question.question_type == 'scale' %}
+                            <p>Échelle de valeurs (1 à 5)</p>
+                        {% elif question.question_type == 'text' %}
+                            <p>Les participants pourront saisir une réponse textuelle.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> Aucune question n'a encore été ajoutée à ce sondage.
+        </div>
+        <div class="text-center">
+            <a href="{% url 'surveys:question_add' survey.pk %}" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Ajouter ma première question
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Alerte temporaire pour informer l'utilisateur
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+        alertDiv.innerHTML = `
+            <i class="fas fa-check-circle me-2"></i> Lien copié avec succès !
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        // Supprimer l'alerte après 3 secondes
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 3000);
+    }).catch(function(err) {
+        console.error('Erreur lors de la copie du texte: ', err);
+    });
+}
+</script>
+{% endblock %}

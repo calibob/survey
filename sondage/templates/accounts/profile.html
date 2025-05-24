@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}Mon Profil - Sondage App{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-user"></i> Mes Informations</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="rounded-circle bg-primary text-white d-inline-flex justify-content-center align-items-center mb-3" style="width: 100px; height: 100px; font-size: 40px;">
+                        {{ user.username|first|upper }}
+                    </div>
+                    <h4>{{ user.profile.get_full_name }}</h4>
+                    <p class="text-muted">{{ user.profile.get_role_display }}</p>
+                </div>
+                
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-envelope me-2"></i> Email</span>
+                        <span>{{ user.email }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-user-tag me-2"></i> Nom d'utilisateur</span>
+                        <span>{{ user.username }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-alt me-2"></i> Membre depuis</span>
+                        <span>{{ user.date_joined|date:"d/m/Y" }}</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'accounts:profile_edit' %}" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-edit"></i> Modifier mon profil
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-poll"></i> Mes Sondages</h5>
+            </div>
+            <div class="card-body">
+                {% if created_surveys %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Titre</th>
+                                <th>Date de création</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for survey in created_surveys %}
+                            <tr>
+                                <td>{{ survey.title }}</td>
+                                <td>{{ survey.created_at|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if survey.is_published %}
+                                    <span class="badge bg-success">Publié</span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">Brouillon</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'surveys:survey_detail' survey.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'surveys:survey_update' survey.pk %}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'surveys:survey_delete' survey.pk %}" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> Vous n'avez pas encore créé de sondages.
+                </div>
+                <div class="text-center">
+                    <a href="{% url 'surveys:survey_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus-circle"></i> Créer mon premier sondage
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

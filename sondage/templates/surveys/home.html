@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Accueil - Sondage App{% endblock %}
+
+{% block content %}
+<div class="text-center mb-5">
+    <h1 class="display-4">Bienvenue sur Sondage App</h1>
+    <p class="lead">Créez et partagez des sondages facilement, ou participez à des sondages existants.</p>
+    {% if not user.is_authenticated %}
+    <div class="mt-4">
+        <a href="{% url 'accounts:register' %}" class="btn btn-primary btn-lg me-2">
+            <i class="fas fa-user-plus"></i> Créer un compte
+        </a>
+        <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary btn-lg">
+            <i class="fas fa-sign-in-alt"></i> Se connecter
+        </a>
+    </div>
+    {% else %}
+    <div class="mt-4">
+        <a href="{% url 'surveys:survey_create' %}" class="btn btn-primary btn-lg">
+            <i class="fas fa-plus-circle"></i> Créer un sondage
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-poll"></i> Sondages publics</h4>
+            </div>
+            <div class="card-body">
+                {% if surveys %}
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                    {% for survey in surveys %}
+                    <div class="col">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ survey.title }}</h5>
+                                <p class="card-text text-muted">{{ survey.description|truncatechars:100 }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <i class="fas fa-user"></i> {{ survey.author.username }}
+                                    </small>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar-alt"></i> {{ survey.created_at|date:"d/m/Y" }}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent border-top-0">
+                                <a href="{% url 'surveys:survey_respond' survey.pk %}" class="btn btn-primary w-100">
+                                    <i class="fas fa-check-circle"></i> Participer
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> Aucun sondage public n'est disponible pour le moment.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

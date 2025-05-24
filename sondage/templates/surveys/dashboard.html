@@ -1,0 +1,476 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tableau de bord - Sondage App{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .chart-container {
+        height: 250px;
+        position: relative;
+    }
+    
+    .activity-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+    
+    .quick-action-card {
+        height: 100%;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .quick-action-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .survey-progress {
+        height: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête du tableau de bord -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Tableau de bord</h1>
+        <div>
+            <a href="{% url 'surveys:survey_create' %}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus-circle"></i> Nouveau sondage
+            </a>
+            <div class="btn-group ms-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-calendar"></i> Période
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><button class="dropdown-item period-filter" data-period="day">Aujourd'hui</button></li>
+                    <li><button class="dropdown-item period-filter" data-period="week">Cette semaine</button></li>
+                    <li><button class="dropdown-item period-filter" data-period="month">Ce mois</button></li>
+                    <li><button class="dropdown-item period-filter" data-period="year">Cette année</button></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><button class="dropdown-item period-filter" data-period="all">Tout</button></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cartes de statistiques -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Sondages créés</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_surveys }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-poll fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Réponses reçues</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_responses }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Taux de complétion</div>
+                            <div class="row no-gutters align-items-center">
+                                <div class="col-auto">
+                                    <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">{{ completion_rate }}%</div>
+                                </div>
+                                <div class="col">
+                                    <div class="progress progress-sm mr-2">
+                                        <div class="progress-bar bg-info" role="progressbar"
+                                            style="width: {{ completion_rate }}%" aria-valuenow="{{ completion_rate }}" aria-valuemin="0"
+                                            aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Temps moyen</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ avg_completion_time }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Graphiques et données -->
+    <div class="row mb-4">
+        <!-- Tendance des réponses -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">Tendance des réponses</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="responsesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Distribution par type de question -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">Types de questions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="questionTypesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Sondages récents -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold">Sondages récents</h6>
+                    <a href="{% url 'surveys:survey_list' %}" class="btn btn-sm btn-light">Voir tous</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_surveys %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Titre</th>
+                                        <th>Réponses</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for survey in recent_surveys %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'surveys:survey_detail' survey.id %}">{{ survey.title }}</a>
+                                            <small class="d-block text-muted">Créé le {{ survey.created_at|date:"d/m/Y" }}</small>
+                                        </td>
+                                        <td>{{ survey.responses.count }}</td>
+                                        <td>
+                                            {% if survey.is_active %}
+                                            <span class="badge bg-success">Actif</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">Inactif</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <a href="{% url 'surveys:survey_detail' survey.id %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'surveys:survey_update' survey.id %}" class="btn btn-sm btn-outline-secondary">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'surveys:survey_export' survey.id %}" class="btn btn-sm btn-outline-success">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i> Vous n'avez pas encore créé de sondage.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Activité récente -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">Activité récente</h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        <div class="activity-feed">
+                            {% for activity in recent_activities %}
+                            <div class="activity-item">
+                                <div class="d-flex">
+                                    <div class="activity-icon me-3">
+                                        {% if activity.type == 'response' %}
+                                            <i class="fas fa-check-circle text-success"></i>
+                                        {% elif activity.type == 'survey_created' %}
+                                            <i class="fas fa-plus-circle text-primary"></i>
+                                        {% elif activity.type == 'survey_updated' %}
+                                            <i class="fas fa-edit text-info"></i>
+                                        {% else %}
+                                            <i class="fas fa-clipboard-list text-secondary"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="activity-content">
+                                        <div class="activity-text">{{ activity.text }}</div>
+                                        <small class="text-muted">{{ activity.timestamp|date:"d/m/Y H:i" }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i> Aucune activité récente.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Actions rapides -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <h5 class="text-gray-800">Actions rapides</h5>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card quick-action-card" onclick="window.location.href='{% url 'surveys:survey_create' %}'">
+                <div class="card-body text-center">
+                    <div class="icon-circle bg-primary text-white mx-auto mb-3">
+                        <i class="fas fa-plus-circle fa-2x"></i>
+                    </div>
+                    <h5 class="card-title">Nouveau sondage</h5>
+                    <p class="card-text small">Créer un nouveau sondage avec des questions</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card quick-action-card" onclick="window.location.href='{% url 'surveys:theme_list' %}'">
+                <div class="card-body text-center">
+                    <div class="icon-circle bg-success text-white mx-auto mb-3">
+                        <i class="fas fa-palette fa-2x"></i>
+                    </div>
+                    <h5 class="card-title">Thèmes</h5>
+                    <p class="card-text small">Gérer les thèmes personnalisés</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card quick-action-card" id="exportAllBtn">
+                <div class="card-body text-center">
+                    <div class="icon-circle bg-info text-white mx-auto mb-3">
+                        <i class="fas fa-file-export fa-2x"></i>
+                    </div>
+                    <h5 class="card-title">Exporter les données</h5>
+                    <p class="card-text small">Télécharger toutes les données de sondage</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card quick-action-card" id="archiveBtn">
+                <div class="card-body text-center">
+                    <div class="icon-circle bg-warning text-white mx-auto mb-3">
+                        <i class="fas fa-archive fa-2x"></i>
+                    </div>
+                    <h5 class="card-title">Archiver</h5>
+                    <p class="card-text small">Archiver les sondages inactifs</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuration du graphique de tendance des réponses
+    const responsesCtx = document.getElementById('responsesChart').getContext('2d');
+    const responsesChart = new Chart(responsesCtx, {
+        type: 'line',
+        data: {
+            labels: {{ response_dates|safe }},
+            datasets: [{
+                label: 'Réponses',
+                data: {{ response_counts|safe }},
+                backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                borderColor: 'rgba(78, 115, 223, 1)',
+                pointRadius: 3,
+                pointBackgroundColor: 'rgba(78, 115, 223, 1)',
+                pointBorderColor: 'rgba(78, 115, 223, 1)',
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: 'rgba(78, 115, 223, 1)',
+                pointHoverBorderColor: 'rgba(78, 115, 223, 1)',
+                pointHitRadius: 10,
+                pointBorderWidth: 2,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    grid: {
+                        display: false,
+                        drawBorder: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgb(255, 255, 255)',
+                    bodyColor: '#858796',
+                    titleColor: '#6e707e',
+                    titleMarginBottom: 10,
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    borderColor: '#dddfeb',
+                    borderWidth: 1,
+                    xPadding: 15,
+                    yPadding: 15,
+                    displayColors: false,
+                    caretPadding: 10
+                }
+            }
+        }
+    });
+    
+    // Configuration du graphique de types de questions
+    const questionTypesCtx = document.getElementById('questionTypesChart').getContext('2d');
+    const questionTypesChart = new Chart(questionTypesCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ question_types_labels|safe }},
+            datasets: [{
+                data: {{ question_types_counts|safe }},
+                backgroundColor: [
+                    '#4e73df',
+                    '#1cc88a',
+                    '#36b9cc',
+                    '#f6c23e',
+                    '#e74a3b'
+                ],
+                hoverBackgroundColor: [
+                    '#2e59d9',
+                    '#17a673',
+                    '#2c9faf',
+                    '#dda20a',
+                    '#c23b21'
+                ],
+                hoverBorderColor: "rgba(234, 236, 244, 1)"
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    backgroundColor: 'rgb(255, 255, 255)',
+                    bodyColor: '#858796',
+                    borderColor: '#dddfeb',
+                    borderWidth: 1,
+                    xPadding: 15,
+                    yPadding: 15,
+                    displayColors: false,
+                    caretPadding: 10
+                }
+            },
+            cutout: '70%'
+        }
+    });
+    
+    // Gestion des filtres de période
+    document.querySelectorAll('.period-filter').forEach(button => {
+        button.addEventListener('click', function(e) {
+            const period = this.dataset.period;
+            window.location.href = `{% url 'surveys:dashboard' %}?period=${period}`;
+        });
+    });
+    
+    // Actions rapides
+    document.getElementById('exportAllBtn').addEventListener('click', function() {
+        // Rediriger vers la page d'export ou déclencher un modal
+        alert('Fonctionnalité d\'export de toutes les données à implémenter');
+    });
+    
+    document.getElementById('archiveBtn').addEventListener('click', function() {
+        // Rediriger vers la page d'archivage ou déclencher un modal
+        alert('Fonctionnalité d\'archivage à implémenter');
+    });
+});
+</script>
+{% endblock %}

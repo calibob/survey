@@ -1,0 +1,290 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}Modifier le thème{% else %}Créer un thème{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .theme-preview {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+  }
+  
+  .preview-header {
+    margin-bottom: 15px;
+  }
+  
+  .preview-button {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    text-align: center;
+  }
+  
+  .colorfield_field {
+    width: 100% !important;
+  }
+  
+  .css-help {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 5px;
+  }
+  
+  .css-example {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 5px;
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'surveys:survey_list' %}">Mes sondages</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'surveys:theme_list' %}">Thèmes</a></li>
+          <li class="breadcrumb-item active" aria-current="page">
+            {% if form.instance.pk %}Modifier{% else %}Créer{% endif %}
+          </li>
+        </ol>
+      </nav>
+      
+      <h1 class="mb-4">
+        {% if form.instance.pk %}
+          Modifier le thème "{{ form.instance.name }}"
+        {% else %}
+          Créer un nouveau thème
+        {% endif %}
+      </h1>
+    </div>
+  </div>
+  
+  {% if messages %}
+    <div class="row">
+      <div class="col-12">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+  
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <h5 class="card-title mb-4">Informations générales</h5>
+            
+            <div class="mb-3">
+              <label for="{{ form.name.id_for_label }}" class="form-label">Nom du thème *</label>
+              {{ form.name }}
+              {% if form.name.errors %}
+                <div class="invalid-feedback d-block">{{ form.name.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="mb-3">
+              <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+              {{ form.description }}
+              {% if form.description.errors %}
+                <div class="invalid-feedback d-block">{{ form.description.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="mb-3 form-check">
+              {{ form.is_public }}
+              <label class="form-check-label" for="{{ form.is_public.id_for_label }}">
+                Rendre ce thème public (accessible aux autres utilisateurs)
+              </label>
+            </div>
+            
+            <hr class="my-4">
+            
+            <h5 class="card-title mb-4">Couleurs et style</h5>
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.primary_color.id_for_label }}" class="form-label">Couleur primaire</label>
+                {{ form.primary_color }}
+                {% if form.primary_color.errors %}
+                  <div class="invalid-feedback d-block">{{ form.primary_color.errors }}</div>
+                {% endif %}
+                <small class="text-muted">Utilisée pour les titres et boutons principaux</small>
+              </div>
+              
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.background_color.id_for_label }}" class="form-label">Couleur de fond</label>
+                {{ form.background_color }}
+                {% if form.background_color.errors %}
+                  <div class="invalid-feedback d-block">{{ form.background_color.errors }}</div>
+                {% endif %}
+                <small class="text-muted">Couleur de fond du sondage</small>
+              </div>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.button_color.id_for_label }}" class="form-label">Couleur des boutons</label>
+                {{ form.button_color }}
+                {% if form.button_color.errors %}
+                  <div class="invalid-feedback d-block">{{ form.button_color.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.text_color.id_for_label }}" class="form-label">Couleur du texte</label>
+                {{ form.text_color }}
+                {% if form.text_color.errors %}
+                  <div class="invalid-feedback d-block">{{ form.text_color.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="{{ form.logo.id_for_label }}" class="form-label">Logo (optionnel)</label>
+              {% if form.instance.logo %}
+                <div class="mb-2">
+                  <img src="{{ form.instance.logo.url }}" alt="Logo actuel" class="img-thumbnail" style="max-height: 80px;">
+                  <small class="d-block text-muted">Logo actuel</small>
+                </div>
+              {% endif %}
+              {{ form.logo }}
+              {% if form.logo.errors %}
+                <div class="invalid-feedback d-block">{{ form.logo.errors }}</div>
+              {% endif %}
+              <small class="text-muted">Format recommandé: PNG transparent, max 1MB</small>
+            </div>
+            
+            <div class="mb-3">
+              <label for="{{ form.css.id_for_label }}" class="form-label">CSS personnalisé (avancé)</label>
+              {{ form.css }}
+              {% if form.css.errors %}
+                <div class="invalid-feedback d-block">{{ form.css.errors }}</div>
+              {% endif %}
+              <div class="css-help">
+                <p>Vous pouvez ajouter du CSS personnalisé pour une personnalisation avancée.</p>
+                <div class="css-example">
+                  /* Exemple: */
+                  .survey-container {
+                    border-radius: 10px;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+                  }
+                  
+                  .question-title {
+                    font-weight: bold;
+                    border-bottom: 2px solid #f0f0f0;
+                  }
+                </div>
+              </div>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+              <a href="{% url 'surveys:theme_list' %}" class="btn btn-outline-secondary me-md-2">Annuler</a>
+              <button type="submit" class="btn btn-primary">
+                {% if form.instance.pk %}Mettre à jour{% else %}Créer{% endif %} le thème
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4 mt-4 mt-lg-0">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Aperçu en temps réel</h5>
+        </div>
+        <div class="card-body p-0">
+          <div id="theme-preview" class="theme-preview p-3">
+            <div class="preview-header">
+              <h4 id="preview-title">Exemple de sondage</h4>
+              <p id="preview-description">Ceci est un aperçu de votre thème personnalisé</p>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label">Question d'exemple</label>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="exampleRadio" id="exampleRadio1" checked>
+                <label class="form-check-label" for="exampleRadio1">
+                  Option 1
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="exampleRadio" id="exampleRadio2">
+                <label class="form-check-label" for="exampleRadio2">
+                  Option 2
+                </label>
+              </div>
+            </div>
+            
+            <div class="preview-button" id="preview-button">Envoyer</div>
+          </div>
+          
+          <div class="card-footer">
+            <small class="text-muted">Cet aperçu se met à jour automatiquement lorsque vous modifiez les couleurs.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Éléments du formulaire
+    const primaryColorInput = document.getElementById('{{ form.primary_color.id_for_label }}');
+    const backgroundColorInput = document.getElementById('{{ form.background_color.id_for_label }}');
+    const buttonColorInput = document.getElementById('{{ form.button_color.id_for_label }}');
+    const textColorInput = document.getElementById('{{ form.text_color.id_for_label }}');
+    
+    // Éléments d'aperçu
+    const themePreview = document.getElementById('theme-preview');
+    const previewTitle = document.getElementById('preview-title');
+    const previewDescription = document.getElementById('preview-description');
+    const previewButton = document.getElementById('preview-button');
+    
+    // Fonction de mise à jour de l'aperçu
+    function updatePreview() {
+      const primaryColor = primaryColorInput.value || '#007bff';
+      const backgroundColor = backgroundColorInput.value || '#ffffff';
+      const buttonColor = buttonColorInput.value || primaryColor;
+      const textColor = textColorInput.value || '#212529';
+      
+      // Mise à jour des styles
+      themePreview.style.backgroundColor = backgroundColor;
+      themePreview.style.color = textColor;
+      
+      previewTitle.style.color = primaryColor;
+      
+      previewButton.style.backgroundColor = buttonColor;
+      previewButton.style.color = '#ffffff';
+      previewButton.style.borderColor = buttonColor;
+    }
+    
+    // Écouter les changements sur les sélecteurs de couleur
+    primaryColorInput.addEventListener('input', updatePreview);
+    backgroundColorInput.addEventListener('input', updatePreview);
+    buttonColorInput.addEventListener('input', updatePreview);
+    textColorInput.addEventListener('input', updatePreview);
+    
+    // Initialiser l'aperçu
+    updatePreview();
+  });
+</script>
+{% endblock %}

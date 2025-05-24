@@ -1,0 +1,142 @@
+/* Styles pour le tableau de bord administrateur */
+
+/* Cartes de statistiques */
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.stat-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Icônes circulaires pour les actions rapides */
+.icon-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+}
+
+/* Styles pour la barre de progression */
+.progress-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #e2e3e5;
+    display: inline-block;
+    margin: 0 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.progress-indicator.active {
+    background-color: #4e73df;
+    transform: scale(1.2);
+}
+
+.progress-indicator.completed {
+    background-color: #1cc88a;
+}
+
+/* Styles pour la liste d'activités */
+.activity-feed {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.activity-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+.activity-item:hover {
+    background-color: rgba(78, 115, 223, 0.05);
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-icon {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: #f8f9fa;
+}
+
+/* Styles pour les cartes d'actions rapides */
+.quick-action-card {
+    height: 100%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0,0,0,0.125);
+}
+
+.quick-action-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+/* Styles pour les graphiques */
+.chart-container {
+    height: 250px;
+    position: relative;
+}
+
+/* Personnalisation des filtres de période */
+.period-filter {
+    cursor: pointer;
+}
+
+.period-filter.active {
+    background-color: #e2e6ea;
+    font-weight: bold;
+}
+
+/* Styles pour les badges d'état */
+.badge.bg-success {
+    background-color: #1cc88a !important;
+}
+
+.badge.bg-secondary {
+    background-color: #858796 !important;
+}
+
+/* Styles responsives */
+@media (max-width: 768px) {
+    .chart-container {
+        height: 200px;
+    }
+    
+    .quick-action-card {
+        margin-bottom: 15px;
+    }
+    
+    .icon-circle {
+        width: 3rem;
+        height: 3rem;
+    }
+}

@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}Modifier le saut de page{% else %}Ajouter un saut de page{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'surveys:survey_list' %}">Mes sondages</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'surveys:survey_detail' survey.id %}">{{ survey.title }}</a></li>
+          <li class="breadcrumb-item active" aria-current="page">
+            {% if form.instance.pk %}Modifier{% else %}Ajouter{% endif %} un saut de page
+          </li>
+        </ol>
+      </nav>
+      
+      <h1 class="mb-4">
+        {% if form.instance.pk %}
+          Modifier le saut de page
+        {% else %}
+          Ajouter un saut de page
+        {% endif %}
+      </h1>
+    </div>
+  </div>
+  
+  {% if messages %}
+    <div class="row">
+      <div class="col-12">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+  
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-body">
+          <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+              <label for="{{ form.title.id_for_label }}" class="form-label">Titre de la section</label>
+              {{ form.title }}
+              {% if form.title.errors %}
+                <div class="invalid-feedback d-block">{{ form.title.errors }}</div>
+              {% endif %}
+              <small class="text-muted">Un titre concis pour introduire la nouvelle section</small>
+            </div>
+            
+            <div class="mb-3">
+              <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+              {{ form.description }}
+              {% if form.description.errors %}
+                <div class="invalid-feedback d-block">{{ form.description.errors }}</div>
+              {% endif %}
+              <small class="text-muted">Texte explicatif optionnel pour guider les participants</small>
+            </div>
+            
+            <div class="mb-3">
+              <label for="{{ form.order.id_for_label }}" class="form-label">Position</label>
+              {{ form.order }}
+              {% if form.order.errors %}
+                <div class="invalid-feedback d-block">{{ form.order.errors }}</div>
+              {% endif %}
+              <small class="text-muted">Numéro d'ordre déterminant l'emplacement du saut de page dans le sondage</small>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+              <a href="{% url 'surveys:survey_detail' survey.id %}" class="btn btn-outline-secondary me-md-2">Annuler</a>
+              <button type="submit" class="btn btn-primary">
+                {% if form.instance.pk %}Mettre à jour{% else %}Ajouter{% endif %} le saut de page
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4 mt-4 mt-lg-0">
+      <div class="card">
+        <div class="card-header bg-light">
+          <h5 class="mb-0">À propos des sauts de page</h5>
+        </div>
+        <div class="card-body">
+          <p>Les sauts de page vous permettent de diviser votre sondage en plusieurs sections ou pages, offrant une meilleure expérience aux participants.</p>
+          
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> <strong>Conseils d'utilisation :</strong>
+            <ul class="mb-0 mt-2">
+              <li>Regroupez les questions similaires ou liées dans une même section</li>
+              <li>Utilisez un titre clair pour chaque nouvelle section</li>
+              <li>Évitez d'avoir trop de sauts de page (ce qui pourrait lasser les participants)</li>
+              <li>La position détermine après quelle question le saut de page apparaîtra</li>
+            </ul>
+          </div>
+          
+          <div class="mt-3">
+            <h6>Exemple :</h6>
+            <div class="card bg-light">
+              <div class="card-body">
+                <h5 class="card-title">Informations personnelles</h5>
+                <p class="card-text text-muted">Dans cette section, nous aimerions mieux vous connaître.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Merci - {{ survey.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .thankyou-container {
+    max-width: 700px;
+    margin: 50px auto;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    background-color: #fff;
+    text-align: center;
+  }
+  
+  .survey-logo {
+    max-height: 100px;
+    margin-bottom: 30px;
+  }
+  
+  .check-icon {
+    font-size: 5rem;
+    color: #28a745;
+    margin-bottom: 25px;
+  }
+  
+  .completion-message {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 30px 0;
+  }
+  
+  .social-share {
+    margin-top: 30px;
+  }
+  
+  .social-share a {
+    display: inline-block;
+    margin: 0 10px;
+    font-size: 1.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="thankyou-container">
+    {% if survey.logo %}
+      <img src="{{ survey.logo.url }}" alt="{{ survey.title }} Logo" class="survey-logo">
+    {% else %}
+      <i class="fas fa-check-circle check-icon"></i>
+    {% endif %}
+    
+    <h1 class="mb-4">Merci pour votre participation !</h1>
+    
+    {% if survey.completion_message %}
+      <div class="completion-message">
+        {{ survey.completion_message|linebreaks }}
+      </div>
+    {% else %}
+      <p class="lead mb-4">Votre réponse au sondage "{{ survey.title }}" a été enregistrée avec succès.</p>
+    {% endif %}
+    
+    {% if survey.allow_multiple_submissions %}
+      <div class="mt-4">
+        <a href="{% url 'surveys:survey_respond' survey.id %}" class="btn btn-outline-primary">
+          <i class="fas fa-redo"></i> Répondre à nouveau
+        </a>
+      </div>
+    {% endif %}
+    
+    <div class="social-share">
+      <p>Partagez ce sondage :</p>
+      <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri }}" target="_blank" class="text-primary">
+        <i class="fab fa-facebook-square"></i>
+      </a>
+      <a href="https://twitter.com/intent/tweet?text=Je%20viens%20de%20participer%20au%20sondage%20{{ survey.title|urlencode }}&url={{ request.build_absolute_uri }}" target="_blank" class="text-info">
+        <i class="fab fa-twitter-square"></i>
+      </a>
+      <a href="https://www.linkedin.com/shareArticle?mini=true&url={{ request.build_absolute_uri }}&title={{ survey.title|urlencode }}" target="_blank" class="text-primary">
+        <i class="fab fa-linkedin"></i>
+      </a>
+    </div>
+    
+    <div class="mt-5">
+      <a href="{% url 'surveys:home' %}" class="btn btn-secondary">
+        <i class="fas fa-home"></i> Retour à l'accueil
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

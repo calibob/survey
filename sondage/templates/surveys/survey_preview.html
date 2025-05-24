@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Prévisualisation - {{ survey.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .preview-container {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin: 20px auto;
+    transition: all 0.3s ease;
+    background-color: {{ survey.background_color|default:"#ffffff" }};
+  }
+  
+  .preview-container h1, 
+  .preview-container h2, 
+  .preview-container h3,
+  .preview-container .btn-primary {
+    color: {{ survey.primary_color|default:"#007bff" }};
+  }
+  
+  .preview-container .btn-primary {
+    background-color: {{ survey.primary_color|default:"#007bff" }};
+    border-color: {{ survey.primary_color|default:"#007bff" }};
+  }
+
+  /* Prévisualisations adaptatives */
+  .desktop-preview {
+    width: 100%;
+    max-width: 800px;
+  }
+  
+  .tablet-preview {
+    width: 100%;
+    max-width: 600px;
+  }
+  
+  .mobile-preview {
+    width: 100%;
+    max-width: 375px;
+  }
+  
+  .preview-controls {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+  }
+  
+  .preview-controls .btn {
+    opacity: 0.6;
+  }
+  
+  .preview-controls .btn.active {
+    opacity: 1;
+    font-weight: bold;
+  }
+  
+  .conditional-question {
+    padding-left: 15px;
+    border-left: 3px solid {{ survey.primary_color|default:"#007bff" }};
+  }
+  
+  .page-break {
+    border-top: 1px dashed #999;
+    margin: 30px 0;
+    padding-top: 20px;
+    position: relative;
+  }
+  
+  .page-break::before {
+    content: "Saut de page";
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    background: #f8f9fa;
+    padding: 0 10px;
+    color: #6c757d;
+    font-size: 0.8rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'surveys:survey_list' %}">Mes sondages</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'surveys:survey_detail' survey.id %}">{{ survey.title }}</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Prévisualisation</li>
+        </ol>
+      </nav>
+      
+      <h1 class="mb-4">Prévisualisation du sondage</h1>
+      
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> 
+        Mode prévisualisation. Cette page vous permet de voir comment votre sondage apparaîtra aux participants.
+      </div>
+      
+      <div class="preview-controls">
+        <a href="?device=desktop" class="btn btn-outline-secondary {% if preview_type == 'desktop' %}active{% endif %}">
+          <i class="fas fa-desktop"></i> Ordinateur
+        </a>
+        <a href="?device=tablet" class="btn btn-outline-secondary {% if preview_type == 'tablet' %}active{% endif %}">
+          <i class="fas fa-tablet-alt"></i> Tablette
+        </a>
+        <a href="?device=mobile" class="btn btn-outline-secondary {% if preview_type == 'mobile' %}active{% endif %}">
+          <i class="fas fa-mobile-alt"></i> Mobile
+        </a>
+      </div>
+    </div>
+  </div>
+  
+  <div class="row justify-content-center">
+    <div class="col-12 text-center">
+      <div class="preview-container {{ preview_type }}-preview">
+        {% if survey.logo %}
+          <div class="text-center mb-4">
+            <img src="{{ survey.logo.url }}" alt="{{ survey.title }} Logo" class="img-fluid" style="max-height: 100px;">
+          </div>
+        {% endif %}
+        
+        <h1 class="text-center mb-3">{{ survey.title }}</h1>
+        <p class="lead mb-4">{{ survey.description }}</p>
+        
+        <form>
+          {% for question in questions %}
+            {% if question.depends_on %}
+              <div class="card mb-4 conditional-question">
+                <div class="card-header bg-light">
+                  <span class="badge bg-warning text-dark">Conditionnelle</span>
+                  Dépend de: {{ question.depends_on.text }} 
+                  {% if question.condition_operator == 'equals' %}est égal à{% endif %}
+                  {% if question.condition_operator == 'not_equals' %}n'est pas égal à{% endif %}
+                  {% if question.condition_operator == 'contains' %}contient{% endif %}
+                  {% if question.condition_operator == 'greater_than' %}est supérieur à{% endif %}
+                  {% if question.condition_operator == 'less_than' %}est inférieur à{% endif %}
+                  "{{ question.condition_value }}"
+                </div>
+            {% else %}
+              <div class="card mb-4">
+            {% endif %}
+                <div class="card-body">
+                  <h5 class="card-title">
+                    {{ question.text }}
+                    {% if question.required %}
+                      <span class="text-danger">*</span>
+                    {% endif %}
+                  </h5>
+                  
+                  {% if question.description %}
+                    <p class="text-muted">{{ question.description }}</p>
+                  {% endif %}
+                  
+                  {% if question.question_type == 'text' %}
+                    <textarea class="form-control" rows="3" {% if question.required %}required{% endif %}></textarea>
+                  
+                  {% elif question.question_type == 'single' %}
+                    {% for option in question.options.all %}
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="option_{{ option.id }}" value="{{ option.id }}" {% if option.is_default %}checked{% endif %} {% if question.required %}required{% endif %}>
+                        <label class="form-check-label" for="option_{{ option.id }}">
+                          {{ option.text }}
+                          {% if option.image %}
+                            <img src="{{ option.image.url }}" alt="{{ option.text }}" class="img-thumbnail" style="max-height: 50px;">
+                          {% endif %}
+                        </label>
+                      </div>
+                    {% endfor %}
+                  
+                  {% elif question.question_type == 'multiple' %}
+                    {% for option in question.options.all %}
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="question_{{ question.id }}" id="option_{{ option.id }}" value="{{ option.id }}" {% if option.is_default %}checked{% endif %}>
+                        <label class="form-check-label" for="option_{{ option.id }}">
+                          {{ option.text }}
+                          {% if option.image %}
+                            <img src="{{ option.image.url }}" alt="{{ option.text }}" class="img-thumbnail" style="max-height: 50px;">
+                          {% endif %}
+                        </label>
+                      </div>
+                    {% endfor %}
+                  
+                  {% elif question.question_type == 'scale' %}
+                    <div class="scale-container">
+                      <div class="d-flex justify-content-between mb-2">
+                        <span>{{ question.scale_min_label|default:"Faible" }}</span>
+                        <span>{{ question.scale_max_label|default:"Élevé" }}</span>
+                      </div>
+                      <div class="btn-group w-100" role="group">
+                        {% for i in "x"|ljust:question.scale_max|make_list %}
+                          {% with forloop.counter as value %}
+                            {% if value >= question.scale_min %}
+                              <input type="radio" class="btn-check" name="question_{{ question.id }}" id="scale_{{ question.id }}_{{ value }}" value="{{ value }}" {% if question.required %}required{% endif %}>
+                              <label class="btn btn-outline-primary" for="scale_{{ question.id }}_{{ value }}">{{ value }}</label>
+                            {% endif %}
+                          {% endwith %}
+                        {% endfor %}
+                      </div>
+                    </div>
+                  
+                  {% elif question.question_type == 'date' %}
+                    <input type="date" class="form-control" {% if question.required %}required{% endif %}>
+                  
+                  {% elif question.question_type == 'number' %}
+                    <input type="number" class="form-control" {% if question.required %}required{% endif %}>
+                  {% endif %}
+                </div>
+              </div>
+            
+            {% for pagebreak in pagebreaks %}
+              {% if pagebreak.order == forloop.counter %}
+                <div class="page-break">
+                  {% if pagebreak.title %}<h3>{{ pagebreak.title }}</h3>{% endif %}
+                  {% if pagebreak.description %}<p>{{ pagebreak.description }}</p>{% endif %}
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          
+          <div class="text-center mt-4 mb-3">
+            <button type="button" class="btn btn-primary px-5 py-2">Envoyer</button>
+          </div>
+          
+          {% if survey.completion_message %}
+            <div class="alert alert-success mt-4">
+              <h4 class="alert-heading">Message de fin:</h4>
+              <p>{{ survey.completion_message }}</p>
+            </div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <div class="row mt-4">
+    <div class="col-12 text-center">
+      <a href="{% url 'surveys:survey_detail' survey.id %}" class="btn btn-secondary">Retour au sondage</a>
+      <a href="{% url 'surveys:survey_update' survey.id %}" class="btn btn-primary">Modifier le sondage</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Script pour prévisualiser la logique conditionnelle
+  document.addEventListener('DOMContentLoaded', function() {
+    // Ce script simule le comportement des questions conditionnelles
+    // En production, ce serait géré avec une logique JavaScript plus complexe
+    
+    // Pour la prévisualisation, on affiche simplement un avertissement quand on clique sur les options
+    const radioInputs = document.querySelectorAll('input[type="radio"]');
+    const checkboxInputs = document.querySelectorAll('input[type="checkbox"]');
+    
+    [...radioInputs, ...checkboxInputs].forEach(input => {
+      input.addEventListener('change', function() {
+        // Simulation de la logique conditionnelle
+        const conditionalQuestions = document.querySelectorAll('.conditional-question');
+        if (conditionalQuestions.length > 0) {
+          const randomShow = Math.random() > 0.5;
+          
+          conditionalQuestions.forEach(question => {
+            if (randomShow) {
+              question.style.opacity = '1';
+              question.style.height = 'auto';
+              question.querySelector('.card-header').innerHTML += ' <span class="badge bg-success">Visible</span>';
+            } else {
+              question.style.opacity = '0.5';
+              question.querySelector('.card-header').innerHTML += ' <span class="badge bg-secondary">Masquée</span>';
+            }
+          });
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

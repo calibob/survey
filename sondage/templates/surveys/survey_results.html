@@ -1,0 +1,673 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Résultats - {{ survey.title }} - Sondage App{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 30px;
+    }
+    
+    .answer-count {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    .question-card {
+        margin-bottom: 30px;
+        transition: transform 0.2s ease;
+    }
+    
+    .question-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    .filter-container {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+    
+    .response-item {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+    }
+    
+    .response-item:hover {
+        background-color: #e9ecef;
+    }
+    
+    .export-btn {
+        margin-left: 10px;
+    }
+    
+    .answer-text {
+        white-space: pre-line;
+    }
+    
+    .text-responses {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Résultats : {{ survey.title }}</h1>
+        <div>
+            <a href="{% url 'surveys:survey_detail' survey.id %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+            <a href="{% url 'surveys:survey_export' survey.id %}" class="btn btn-success export-btn">
+                <i class="fas fa-file-export"></i> Exporter
+            </a>
+        </div>
+    </div>
+    
+    <div class="card shadow mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Aperçu des résultats</h5>
+            <span class="badge bg-light text-dark">{{ total_responses }} réponses</span>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <!-- Taux de complétion -->
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Taux de complétion</h5>
+                            <div class="chart-container" style="height: 200px;">
+                                <canvas id="completionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Répartition par date -->
+                <div class="col-md-8">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Évolution des réponses</h5>
+                            <div class="chart-container">
+                                <canvas id="responsesTimelineChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtres pour les résultats -->
+            <div class="filter-container">
+                <h5 class="mb-3">Filtres</h5>
+                <form id="filterForm" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="dateRangeFilter" class="form-label">Période</label>
+                        <select class="form-select" id="dateRangeFilter">
+                            <option value="all" selected>Toutes les réponses</option>
+                            <option value="day">Aujourd'hui</option>
+                            <option value="week">Cette semaine</option>
+                            <option value="month">Ce mois</option>
+                        </select>
+                    </div>
+                    
+                    {% if has_question_filters %}
+                    <div class="col-md-4">
+                        <label for="questionFilter" class="form-label">Filtrer par question</label>
+                        <select class="form-select" id="questionFilter">
+                            <option value="" selected>Aucun filtre</option>
+                            {% for question in filter_questions %}
+                            <option value="{{ question.id }}">{{ question.text|truncatechars:30 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4" id="answerFilterContainer" style="display: none;">
+                        <label for="answerFilter" class="form-label">Réponse</label>
+                        <select class="form-select" id="answerFilter">
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="col-12 mt-3">
+                        <button type="button" id="applyFiltersBtn" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> Appliquer les filtres
+                        </button>
+                        <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary ms-2">
+                            <i class="fas fa-undo"></i> Réinitialiser
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Affichage des résultats par question -->
+    <div id="questionResults">
+        {% for question in questions %}
+        <div class="card question-card shadow" id="question-{{ question.id }}">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Question {{ forloop.counter }} : {{ question.text }}</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    {{ question.get_question_type_display }} 
+                    {% if question.required %}<span class="badge bg-danger">Obligatoire</span>{% endif %}
+                    <span class="answer-count ms-2">{{ question.answer_count }} réponses</span>
+                </p>
+                
+                {% if question.question_type == 'single' or question.question_type == 'multiple' %}
+                    <!-- Graphique pour questions à choix unique ou multiple -->
+                    <div class="chart-container">
+                        <canvas id="chart-question-{{ question.id }}"></canvas>
+                    </div>
+                    
+                    <!-- Tableau des résultats -->
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Option</th>
+                                    <th>Nombre de réponses</th>
+                                    <th>Pourcentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for option in question.options.all %}
+                                <tr>
+                                    <td>{{ option.text }}</td>
+                                    <td class="option-count" data-option-id="{{ option.id }}">
+                                        {{ option.response_count }}
+                                    </td>
+                                    <td class="option-percentage" data-option-id="{{ option.id }}">
+                                        {{ option.response_percentage }}%
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                {% elif question.question_type == 'scale' %}
+                    <!-- Graphique pour questions d'échelle -->
+                    <div class="chart-container">
+                        <canvas id="chart-question-{{ question.id }}"></canvas>
+                    </div>
+                    
+                    <!-- Statistiques d'échelle -->
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <div class="card text-center bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Moyenne</h5>
+                                    <p class="card-text h3">{{ question.average_score|floatformat:1 }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-center bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Médiane</h5>
+                                    <p class="card-text h3">{{ question.median_score }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-center bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Réponse la plus fréquente</h5>
+                                    <p class="card-text h3">{{ question.most_common_score }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                {% elif question.question_type == 'text' %}
+                    <!-- Nuage de mots (si disponible) -->
+                    <div class="text-center mb-4">
+                        <div class="chart-container" id="wordcloud-container-{{ question.id }}">
+                            <canvas id="wordcloud-question-{{ question.id }}"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Liste des réponses textuelles -->
+                    <h6>Réponses ({{ question.text_responses|length }})</h6>
+                    <div class="text-responses">
+                        {% if question.text_responses %}
+                            {% for response in question.text_responses %}
+                            <div class="response-item">
+                                <p class="answer-text mb-1">{{ response.text }}</p>
+                                <small class="text-muted">{{ response.date|date:"d/m/Y H:i" }}</small>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i> Aucune réponse textuelle.
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                {% elif question.question_type == 'date' %}
+                    <!-- Graphique pour dates -->
+                    <div class="chart-container">
+                        <canvas id="chart-question-{{ question.id }}"></canvas>
+                    </div>
+                    
+                {% elif question.question_type == 'number' %}
+                    <!-- Graphique pour nombres -->
+                    <div class="chart-container">
+                        <canvas id="chart-question-{{ question.id }}"></canvas>
+                    </div>
+                    
+                    <!-- Statistiques numériques -->
+                    <div class="row mt-3">
+                        <div class="col-md-3">
+                            <div class="card text-center bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Moyenne</h5>
+                                    <p class="card-text h3">{{ question.average_number|floatformat:1 }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Médiane</h5>
+                                    <p class="card-text h3">{{ question.median_number }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Minimum</h5>
+                                    <p class="card-text h3">{{ question.min_number }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Maximum</h5>
+                                    <p class="card-text h3">{{ question.max_number }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Si aucune réponse -->
+    {% if not total_responses %}
+    <div class="alert alert-info mt-4">
+        <i class="fas fa-info-circle me-2"></i> Ce sondage n'a encore reçu aucune réponse.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuration globale de Chart.js
+    Chart.register(ChartDataLabels);
+    Chart.defaults.font.family = '"Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+    Chart.defaults.color = '#858796';
+    
+    // Données pour les graphiques (sera rempli par la vue)
+    const surveyData = {{ survey_data|safe }};
+    
+    // Graphique du taux de complétion (donut)
+    const completionCtx = document.getElementById('completionChart').getContext('2d');
+    const completionChart = new Chart(completionCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Complétées', 'Abandonnées'],
+            datasets: [{
+                data: [surveyData.completion.completed, surveyData.completion.abandoned],
+                backgroundColor: ['#1cc88a', '#e74a3b'],
+                hoverBackgroundColor: ['#17a673', '#c23b21'],
+                hoverBorderColor: "rgba(234, 236, 244, 1)",
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                datalabels: {
+                    formatter: (value, ctx) => {
+                        const sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        if (sum > 0) {
+                            return Math.round((value / sum * 100)) + '%';
+                        }
+                        return '';
+                    },
+                    color: '#fff',
+                    font: {
+                        weight: 'bold'
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const sum = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const value = context.raw;
+                            const percentage = Math.round((value / sum * 100));
+                            return `${context.label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Graphique de l'évolution des réponses (ligne)
+    const timelineCtx = document.getElementById('responsesTimelineChart').getContext('2d');
+    const timelineChart = new Chart(timelineCtx, {
+        type: 'line',
+        data: {
+            labels: surveyData.timeline.dates,
+            datasets: [{
+                label: 'Réponses',
+                data: surveyData.timeline.counts,
+                backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                borderColor: 'rgba(78, 115, 223, 1)',
+                pointRadius: 3,
+                pointBackgroundColor: 'rgba(78, 115, 223, 1)',
+                pointBorderColor: 'rgba(78, 115, 223, 1)',
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: 'rgba(78, 115, 223, 1)',
+                pointHoverBorderColor: 'rgba(78, 115, 223, 1)',
+                pointHitRadius: 10,
+                pointBorderWidth: 2,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    grid: {
+                        display: false,
+                        drawBorder: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                datalabels: {
+                    display: false
+                }
+            }
+        }
+    });
+    
+    // Créer des graphiques pour chaque question
+    surveyData.questions.forEach(question => {
+        if (['single', 'multiple'].includes(question.type)) {
+            // Graphique pour les questions à choix unique ou multiple (barre horizontale)
+            const ctx = document.getElementById(`chart-question-${question.id}`).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: question.options.map(opt => opt.text),
+                    datasets: [{
+                        label: 'Réponses',
+                        data: question.options.map(opt => opt.count),
+                        backgroundColor: question.options.map((_, i) => {
+                            const colors = [
+                                'rgba(78, 115, 223, 0.8)',
+                                'rgba(28, 200, 138, 0.8)',
+                                'rgba(54, 185, 204, 0.8)',
+                                'rgba(246, 194, 62, 0.8)',
+                                'rgba(231, 74, 59, 0.8)'
+                            ];
+                            return colors[i % colors.length];
+                        }),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'end',
+                            formatter: (value) => {
+                                if (value > 0) return value;
+                                return '';
+                            }
+                        }
+                    }
+                }
+            });
+        } else if (question.type === 'scale') {
+            // Graphique pour les questions d'échelle (barre)
+            const ctx = document.getElementById(`chart-question-${question.id}`).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: question.scale_labels,
+                    datasets: [{
+                        label: 'Réponses',
+                        data: question.scale_values,
+                        backgroundColor: 'rgba(78, 115, 223, 0.8)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'end',
+                            formatter: (value) => {
+                                if (value > 0) return value;
+                                return '';
+                            }
+                        }
+                    }
+                }
+            });
+        } else if (question.type === 'text' && document.getElementById(`wordcloud-question-${question.id}`)) {
+            // Nuage de mots pour les questions textuelles (si disponible)
+            if (question.word_frequencies && question.word_frequencies.length > 0) {
+                const canvas = document.getElementById(`wordcloud-question-${question.id}`);
+                const container = document.getElementById(`wordcloud-container-${question.id}`);
+                
+                WordCloud(canvas, {
+                    list: question.word_frequencies,
+                    gridSize: 16,
+                    weightFactor: 10,
+                    fontFamily: 'Nunito, sans-serif',
+                    color: 'random-dark',
+                    backgroundColor: 'transparent',
+                    rotateRatio: 0.5,
+                    drawOutOfBound: false,
+                    shrinkToFit: true
+                });
+            }
+        } else if (question.type === 'date') {
+            // Graphique pour les questions de date (histogramme par mois)
+            const ctx = document.getElementById(`chart-question-${question.id}`).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: question.date_groups.map(g => g.label),
+                    datasets: [{
+                        label: 'Réponses',
+                        data: question.date_groups.map(g => g.count),
+                        backgroundColor: 'rgba(78, 115, 223, 0.8)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'end',
+                            formatter: (value) => {
+                                if (value > 0) return value;
+                                return '';
+                            }
+                        }
+                    }
+                }
+            });
+        } else if (question.type === 'number') {
+            // Graphique pour les questions numériques (histogramme)
+            const ctx = document.getElementById(`chart-question-${question.id}`).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: question.number_ranges.map(r => r.label),
+                    datasets: [{
+                        label: 'Réponses',
+                        data: question.number_ranges.map(r => r.count),
+                        backgroundColor: 'rgba(78, 115, 223, 0.8)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'end',
+                            formatter: (value) => {
+                                if (value > 0) return value;
+                                return '';
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+    
+    // Gestion des filtres
+    const questionFilter = document.getElementById('questionFilter');
+    const answerFilter = document.getElementById('answerFilter');
+    const answerFilterContainer = document.getElementById('answerFilterContainer');
+    
+    if (questionFilter) {
+        questionFilter.addEventListener('change', function() {
+            const questionId = this.value;
+            
+            // Réinitialiser le filtre de réponse
+            answerFilter.innerHTML = '<option value="" selected>Toutes les réponses</option>';
+            
+            if (questionId) {
+                // Trouver la question sélectionnée
+                const selectedQuestion = surveyData.questions.find(q => q.id == questionId);
+                
+                if (selectedQuestion && ['single', 'multiple'].includes(selectedQuestion.type)) {
+                    // Ajouter les options de réponse pour les questions à choix
+                    selectedQuestion.options.forEach(option => {
+                        const optElement = document.createElement('option');
+                        optElement.value = option.id;
+                        optElement.textContent = option.text;
+                        answerFilter.appendChild(optElement);
+                    });
+                    
+                    // Afficher le filtre de réponse
+                    answerFilterContainer.style.display = 'block';
+                } else {
+                    // Masquer le filtre de réponse pour les autres types de questions
+                    answerFilterContainer.style.display = 'none';
+                }
+            } else {
+                // Masquer le filtre de réponse si aucune question n'est sélectionnée
+                answerFilterContainer.style.display = 'none';
+            }
+        });
+    }
+    
+    // Appliquer les filtres
+    const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+    if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener('click', function() {
+            const dateRange = document.getElementById('dateRangeFilter').value;
+            const questionId = questionFilter ? questionFilter.value : '';
+            const answerId = answerFilter ? answerFilter.value : '';
+            
+            // Rediriger vers la même page avec les paramètres de filtre
+            window.location.href = `${window.location.pathname}?date_range=${dateRange}${questionId ? '&question_id=' + questionId : ''}${answerId ? '&answer_id=' + answerId : ''}`;
+        });
+    }
+    
+    // Réinitialiser les filtres
+    const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+    if (resetFiltersBtn) {
+        resetFiltersBtn.addEventListener('click', function() {
+            window.location.href = window.location.pathname;
+        });
+    }
+});
+</script>
+{% endblock %}

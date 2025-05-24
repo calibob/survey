@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supprimer le thème{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+          <h4 class="mb-0">Confirmation de suppression</h4>
+        </div>
+        
+        <div class="card-body">
+          <div class="text-center mb-4">
+            <i class="fas fa-exclamation-triangle text-danger fa-4x"></i>
+          </div>
+          
+          <h5 class="card-title text-center mb-4">Êtes-vous sûr de vouloir supprimer le thème "{{ object.name }}" ?</h5>
+          
+          <div class="alert alert-warning">
+            <i class="fas fa-info-circle"></i> Cette action est irréversible. Tous les paramètres personnalisés de ce thème seront perdus.
+          </div>
+          
+          <div class="mt-4">
+            <div class="d-flex align-items-center mb-3">
+              <div class="color-preview me-3" style="width: 30px; height: 30px; border-radius: 50%; background-color: {{ object.primary_color }};"></div>
+              <div>
+                <p class="mb-0 fw-bold">Couleur primaire</p>
+                <small class="text-muted">{{ object.primary_color }}</small>
+              </div>
+            </div>
+            
+            <p><strong>Description :</strong> {{ object.description|default:"Aucune description" }}</p>
+            <p><strong>Date de création :</strong> {{ object.created_at|date:"d/m/Y à H:i" }}</p>
+            
+            {% if object.is_public %}
+              <p><span class="badge bg-success">Thème public</span></p>
+            {% else %}
+              <p><span class="badge bg-secondary">Thème privé</span></p>
+            {% endif %}
+          </div>
+          
+          <form method="post" class="mt-4">
+            {% csrf_token %}
+            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+              <a href="{% url 'surveys:theme_list' %}" class="btn btn-outline-secondary me-md-2">
+                <i class="fas fa-arrow-left"></i> Annuler
+              </a>
+              <button type="submit" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Confirmer la suppression
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

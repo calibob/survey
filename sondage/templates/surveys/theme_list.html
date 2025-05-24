@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Thèmes de sondage{% endblock %}
+
+{% block extra_css %}
+<style>
+  .theme-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+  }
+  
+  .theme-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  }
+  
+  .theme-preview {
+    height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 0.25rem 0.25rem 0 0;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .theme-actions {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .theme-card:hover .theme-actions {
+    opacity: 1;
+  }
+  
+  .theme-creator {
+    font-size: 0.8rem;
+    color: #6c757d;
+  }
+  
+  .public-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Thèmes de sondage</h1>
+    <a href="{% url 'surveys:theme_create' %}" class="btn btn-primary">
+      <i class="fas fa-plus"></i> Créer un thème
+    </a>
+  </div>
+  
+  {% if messages %}
+    <div class="row">
+      <div class="col-12">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+  
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Les thèmes vous permettent de personnaliser l'apparence de vos sondages et de les réutiliser facilement.
+      </div>
+    </div>
+  </div>
+  
+  {% if themes %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+      {% for theme in themes %}
+        <div class="col">
+          <div class="card theme-card">
+            <div class="theme-preview" style="background-color: {{ theme.primary_color }};">
+              {% if theme.is_public %}
+                <span class="badge bg-success public-badge">Public</span>
+              {% endif %}
+              
+              <h5 class="mb-0 text-white">{{ theme.name }}</h5>
+              
+              {% if theme.creator == request.user %}
+                <div class="theme-actions">
+                  <a href="{% url 'surveys:theme_update' theme.id %}" class="btn btn-sm btn-light">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <a href="{% url 'surveys:theme_delete' theme.id %}" class="btn btn-sm btn-light text-danger">
+                    <i class="fas fa-trash"></i>
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+            
+            <div class="card-body">
+              <p class="card-text">{{ theme.description|truncatechars:100 }}</p>
+              
+              <div class="d-flex mt-3">
+                <div class="color-preview me-2" style="width: 25px; height: 25px; border-radius: 50%; background-color: {{ theme.primary_color }};" title="Couleur primaire"></div>
+                <div class="color-preview me-2" style="width: 25px; height: 25px; border-radius: 50%; background-color: {{ theme.background_color }};" title="Couleur de fond"></div>
+                <div class="color-preview me-2" style="width: 25px; height: 25px; border-radius: 50%; background-color: {{ theme.button_color }};" title="Couleur des boutons"></div>
+                <div class="color-preview" style="width: 25px; height: 25px; border-radius: 50%; background-color: {{ theme.text_color }};" title="Couleur du texte"></div>
+              </div>
+              
+              <p class="theme-creator mt-3 mb-0">
+                {% if theme.creator == request.user %}
+                  <i class="fas fa-user-circle"></i> Créé par vous
+                {% else %}
+                  <i class="fas fa-user-circle"></i> Créé par {{ theme.creator.username }}
+                {% endif %}
+                <br>
+                <small class="text-muted">{{ theme.created_at|date:"d/m/Y" }}</small>
+              </p>
+            </div>
+            
+            <div class="card-footer bg-transparent">
+              <a href="{% url 'surveys:survey_create' %}?theme={{ theme.id }}" class="btn btn-outline-primary btn-sm w-100">
+                <i class="fas fa-magic"></i> Utiliser ce thème
+              </a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="row">
+      <div class="col-12 text-center py-5">
+        <i class="fas fa-palette fa-5x mb-3 text-muted"></i>
+        <h3>Aucun thème disponible</h3>
+        <p class="lead">Créez votre premier thème pour personnaliser vos sondages.</p>
+        <a href="{% url 'surveys:theme_create' %}" class="btn btn-primary mt-3">
+          <i class="fas fa-plus"></i> Créer un thème
+        </a>
+      </div>
+    </div>
+  {% endif %}
+  
+  <div class="row mt-5">
+    <div class="col-12 text-center">
+      <a href="{% url 'surveys:survey_list' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Retour à mes sondages
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

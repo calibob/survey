@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supprimer le saut de page{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+          <h4 class="mb-0">Confirmation de suppression</h4>
+        </div>
+        
+        <div class="card-body">
+          <div class="text-center mb-4">
+            <i class="fas fa-exclamation-triangle text-danger fa-4x"></i>
+          </div>
+          
+          <h5 class="card-title text-center mb-4">Êtes-vous sûr de vouloir supprimer ce saut de page ?</h5>
+          
+          <div class="alert alert-warning">
+            <i class="fas fa-info-circle"></i> Cette action est irréversible. Le saut de page sera définitivement supprimé du sondage.
+          </div>
+          
+          <div class="mt-4">
+            <p><strong>Titre :</strong> {{ object.title|default:"Sans titre" }}</p>
+            <p><strong>Description :</strong> {{ object.description|default:"Aucune description" }}</p>
+            <p><strong>Position :</strong> {{ object.order }}</p>
+            <p><strong>Sondage :</strong> {{ object.survey.title }}</p>
+          </div>
+          
+          <form method="post" class="mt-4">
+            {% csrf_token %}
+            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+              <a href="{% url 'surveys:survey_detail' object.survey.id %}" class="btn btn-outline-secondary me-md-2">
+                <i class="fas fa-arrow-left"></i> Annuler
+              </a>
+              <button type="submit" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Confirmer la suppression
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

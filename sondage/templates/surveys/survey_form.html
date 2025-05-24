@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Modifier{% else %}Créer{% endif %} un sondage - Sondage App{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">
+            <i class="fas fa-{% if form.instance.pk %}edit{% else %}plus-circle{% endif %}"></i> 
+            {% if form.instance.pk %}Modifier{% else %}Créer{% endif %} un sondage
+        </h4>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="id_title" class="form-label">Titre du sondage *</label>
+                <input type="text" name="title" value="{{ form.title.value|default:'' }}" class="form-control {% if form.title.errors %}is-invalid{% endif %}" id="id_title" required>
+                {% if form.title.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.title.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="id_description" class="form-label">Description *</label>
+                <textarea name="description" rows="4" class="form-control {% if form.description.errors %}is-invalid{% endif %}" id="id_description" required>{{ form.description.value|default:'' }}</textarea>
+                {% if form.description.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.description.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3 form-check">
+                <input type="checkbox" name="is_published" {% if form.is_published.value %}checked{% endif %} class="form-check-input" id="id_is_published">
+                <label class="form-check-label" for="id_is_published">Publier ce sondage</label>
+                <div class="form-text">Un sondage publié sera visible par tous les utilisateurs sur la page d'accueil.</div>
+            </div>
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="d-flex justify-content-between">
+                <a href="{% if form.instance.pk %}{% url 'surveys:survey_detail' form.instance.pk %}{% else %}{% url 'surveys:survey_list' %}{% endif %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Annuler
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> {% if form.instance.pk %}Mettre à jour{% else %}Créer{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if form.instance.pk %}
+<div class="card shadow mt-4">
+    <div class="card-header bg-primary text-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="mb-0"><i class="fas fa-list"></i> Questions</h4>
+            <a href="{% url 'surveys:question_add' form.instance.pk %}" class="btn btn-light btn-sm">
+                <i class="fas fa-plus"></i> Ajouter une question
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        {% with questions=form.instance.questions.all %}
+        {% if questions %}
+        <div class="list-group">
+            {% for question in questions %}
+            <div class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ question.text }}</h5>
+                    <a href="{% url 'surveys:question_update' question.pk %}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                </div>
+                <p class="mb-1">Type: {{ question.get_question_type_display }}</p>
+                <small class="text-muted">
+                    {% if question.required %}
+                    <span class="badge bg-danger">Obligatoire</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Optionnelle</span>
+                    {% endif %}
+                    Ordre: {{ question.order }}
+                </small>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> Aucune question n'a encore été ajoutée à ce sondage.
+        </div>
+        <div class="text-center">
+            <a href="{% url 'surveys:question_add' form.instance.pk %}" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Ajouter ma première question
+            </a>
+        </div>
+        {% endif %}
+        {% endwith %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

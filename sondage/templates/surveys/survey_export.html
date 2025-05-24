@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Exporter les résultats - {{ survey.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .export-container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  .format-card {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    height: 100%;
+  }
+  
+  .format-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  }
+  
+  .format-card.selected {
+    border-color: #007bff;
+    background-color: rgba(0, 123, 255, 0.05);
+  }
+  
+  .format-card.selected .card-header {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  .format-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+  
+  .json-icon { color: #ffa500; }
+  .csv-icon { color: #28a745; }
+  .excel-icon { color: #17a2b8; }
+  
+  .responses-count {
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'surveys:survey_list' %}">Mes sondages</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'surveys:survey_detail' survey.id %}">{{ survey.title }}</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Exporter les résultats</li>
+        </ol>
+      </nav>
+      
+      <h1 class="mb-4">Exporter les résultats</h1>
+    </div>
+  </div>
+  
+  {% if messages %}
+    <div class="row">
+      <div class="col-12">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+  
+  <div class="export-container">
+    <div class="card mb-4">
+      <div class="card-header bg-light">
+        <h5 class="mb-0">Informations sur le sondage</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <p><strong>Titre :</strong> {{ survey.title }}</p>
+            <p><strong>Date de création :</strong> {{ survey.created_at|date:"d/m/Y" }}</p>
+            <p><strong>Questions :</strong> {{ survey.questions.count }}</p>
+          </div>
+          <div class="col-md-6">
+            <p><strong>Statut :</strong> 
+              {% if survey.is_published %}
+                <span class="badge bg-success">Publié</span>
+              {% else %}
+                <span class="badge bg-secondary">Brouillon</span>
+              {% endif %}
+            </p>
+            <p><strong>Réponses :</strong> <span class="responses-count">{{ survey.responses.count }}</span></p>
+            <p><strong>Dernière réponse :</strong> 
+              {% if survey.responses.exists %}
+                {{ survey.responses.latest.submitted_at|date:"d/m/Y à H:i" }}
+              {% else %}
+                Aucune réponse
+              {% endif %}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    {% if survey.responses.exists %}
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="card mb-4">
+          <div class="card-header bg-light">
+            <h5 class="mb-0">Format d'exportation</h5>
+          </div>
+          <div class="card-body">
+            <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+              <div class="col">
+                <label class="w-100" for="format-json">
+                  <div id="card-json" class="card format-card h-100 selected">
+                    <div class="card-header text-center">
+                      JSON
+                    </div>
+                    <div class="card-body text-center">
+                      <i class="fas fa-code format-icon json-icon"></i>
+                      <p class="card-text">Format structuré pour le développement</p>
+                    </div>
+                  </div>
+                </label>
+                <input type="radio" name="format_type" id="format-json" value="json" class="d-none" checked>
+              </div>
+              
+              <div class="col">
+                <label class="w-100" for="format-csv">
+                  <div id="card-csv" class="card format-card h-100">
+                    <div class="card-header text-center">
+                      CSV
+                    </div>
+                    <div class="card-body text-center">
+                      <i class="fas fa-file-csv format-icon csv-icon"></i>
+                      <p class="card-text">Compatible avec la plupart des tableurs</p>
+                    </div>
+                  </div>
+                </label>
+                <input type="radio" name="format_type" id="format-csv" value="csv" class="d-none">
+              </div>
+              
+              <div class="col">
+                <label class="w-100" for="format-excel">
+                  <div id="card-excel" class="card format-card h-100">
+                    <div class="card-header text-center">
+                      Excel
+                    </div>
+                    <div class="card-body text-center">
+                      <i class="fas fa-file-excel format-icon excel-icon"></i>
+                      <p class="card-text">Format Excel avec mise en forme</p>
+                      <small class="text-muted">(Bientôt disponible)</small>
+                    </div>
+                  </div>
+                </label>
+                <input type="radio" name="format_type" id="format-excel" value="excel" class="d-none" disabled>
+              </div>
+            </div>
+            
+            <div class="form-check mb-3">
+              {{ form.include_responses }}
+              <label class="form-check-label" for="{{ form.include_responses.id_for_label }}">
+                Inclure les réponses des participants
+              </label>
+              <small class="form-text text-muted d-block">
+                Si cette option est désactivée, seule la structure du sondage sera exportée.
+              </small>
+            </div>
+          </div>
+        </div>
+        
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+          <a href="{% url 'surveys:survey_detail' survey.id %}" class="btn btn-outline-secondary me-md-2">Annuler</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-download"></i> Télécharger l'export
+          </button>
+        </div>
+      </form>
+    {% else %}
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Ce sondage n'a pas encore reçu de réponses. L'exportation sera disponible dès que des réponses auront été enregistrées.
+      </div>
+      
+      <div class="text-center mt-4">
+        <a href="{% url 'surveys:survey_detail' survey.id %}" class="btn btn-outline-secondary">
+          <i class="fas fa-arrow-left"></i> Retour au sondage
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Gestion de la sélection du format
+    const formatCards = document.querySelectorAll('.format-card');
+    const formatInputs = document.querySelectorAll('input[name="format_type"]');
+    
+    formatInputs.forEach(input => {
+      if (!input.disabled) {
+        input.addEventListener('change', function() {
+          // Réinitialiser toutes les cartes
+          formatCards.forEach(card => {
+            card.classList.remove('selected');
+          });
+          
+          // Sélectionner la carte correspondante
+          document.getElementById('card-' + this.value).classList.add('selected');
+        });
+      }
+    });
+  });
+</script>
+{% endblock %}
