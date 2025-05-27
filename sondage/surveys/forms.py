@@ -1,4 +1,5 @@
 from django import forms
+from django.db import models
 from django.utils import timezone
 from .models import Survey, Question, QuestionOption, SurveyTheme, SurveyPageBreak
 from colorfield.fields import ColorField
@@ -22,7 +23,7 @@ class SurveyForm(forms.ModelForm):
             # Informations de base
             'title', 'description', 'is_published',
             # Personnalisation
-            'primary_color', 'background_color', 'logo', 'completion_message',
+            'theme', 'primary_color', 'background_color', 'logo', 'completion_message',
             # Restrictions
             'password', 'allow_multiple_submissions', 'track_ip'
         ]
@@ -30,12 +31,14 @@ class SurveyForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'completion_message': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'password': forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}, render_value=True),
-            'primary_color': forms.TextInput(attrs={'class': 'form-control colorfield_field'}),
-            'background_color': forms.TextInput(attrs={'class': 'form-control colorfield_field'}),
+            'theme': forms.Select(attrs={'class': 'form-control theme-selector'}),
+            'primary_color': forms.TextInput(attrs={'class': 'form-control colorfield_field', 'type': 'color'}),
+            'background_color': forms.TextInput(attrs={'class': 'form-control colorfield_field', 'type': 'color'}),
             'logo': forms.FileInput(attrs={'class': 'form-control'}),
         }
         
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         instance = kwargs.get('instance')
         
@@ -45,11 +48,22 @@ class SurveyForm(forms.ModelForm):
                 self.fields['start_date_field'].initial = instance.start_date
             if instance.end_date:
                 self.fields['end_date_field'].initial = instance.end_date
-                
+        
+        # Configurer le queryset pour le champ theme
+        # Inclure les thèmes publics et les thèmes créés par l'utilisateur
+        if self.user:
+            self.fields['theme'].queryset = SurveyTheme.objects.filter(
+                models.Q(is_public=True) | models.Q(author=self.user)
+            ).order_by('-created_at')
+        
         # Rendre certains champs optionnels
         self.fields['primary_color'].required = False
         self.fields['background_color'].required = False
         self.fields['password'].required = False
+        self.fields['theme'].required = False
+        
+        # Ajouter l'étiquette pour le champ thème
+        self.fields['theme'].label = "Thème (facultatif)"
         
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -57,6 +71,20 @@ class SurveyForm(forms.ModelForm):
         # Sauvegarder les dates
         instance.start_date = self.cleaned_data.get('start_date_field')
         instance.end_date = self.cleaned_data.get('end_date_field')
+        
+        # Appliquer les couleurs du thème sélectionné si un thème est choisi
+        # et que les couleurs n'ont pas été modifiées manuellement
+        theme = self.cleaned_data.get('theme')
+        if theme:
+            # Si les champs de couleur sont vides ou ont les valeurs par défaut, appliquer les couleurs du thème
+            if not self.data.get('primary_color') or self.data.get('primary_color') == '#007bff':
+                instance.primary_color = theme.primary_color
+            if not self.data.get('background_color') or self.data.get('background_color') == '#ffffff':
+                instance.background_color = theme.background_color
+                
+            # Appliquer le logo du thème si aucun logo n'est choisi pour le sondage
+            if not instance.logo and theme.logo:
+                instance.logo = theme.logo
         
         if commit:
             instance.save()
@@ -145,10 +173,10 @@ class SurveyThemeForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'primary_color': forms.TextInput(attrs={'class': 'form-control colorfield_field'}),
-            'background_color': forms.TextInput(attrs={'class': 'form-control colorfield_field'}),
-            'button_color': forms.TextInput(attrs={'class': 'form-control colorfield_field'}),
-            'text_color': forms.TextInput(attrs={'class': 'form-control colorfield_field'}),
+            'primary_color': forms.TextInput(attrs={'class': 'form-control color-picker', 'type': 'color'}),
+            'background_color': forms.TextInput(attrs={'class': 'form-control color-picker', 'type': 'color'}),
+            'button_color': forms.TextInput(attrs={'class': 'form-control color-picker', 'type': 'color'}),
+            'text_color': forms.TextInput(attrs={'class': 'form-control color-picker', 'type': 'color'}),
             'logo': forms.FileInput(attrs={'class': 'form-control'}),
             'css': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
             'is_public': forms.CheckboxInput(attrs={'class': 'form-check-input'}),

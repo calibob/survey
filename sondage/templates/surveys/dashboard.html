@@ -313,7 +313,7 @@
             </div>
         </div>
         <div class="col-md-3 col-sm-6">
-            <div class="card quick-action-card" id="exportAllBtn">
+            <div class="card quick-action-card" onclick="window.location.href='{% url 'surveys:dashboard_export' %}'">
                 <div class="card-body text-center">
                     <div class="icon-circle bg-info text-white mx-auto mb-3">
                         <i class="fas fa-file-export fa-2x"></i>
@@ -324,7 +324,7 @@
             </div>
         </div>
         <div class="col-md-3 col-sm-6">
-            <div class="card quick-action-card" id="archiveBtn">
+            <div class="card quick-action-card" onclick="window.location.href='{% url 'surveys:bulk_archive' %}'">
                 <div class="card-body text-center">
                     <div class="icon-circle bg-warning text-white mx-auto mb-3">
                         <i class="fas fa-archive fa-2x"></i>
@@ -462,15 +462,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Actions rapides
-    document.getElementById('exportAllBtn').addEventListener('click', function() {
-        // Rediriger vers la page d'export ou déclencher un modal
-        alert('Fonctionnalité d\'export de toutes les données à implémenter');
-    });
-    
-    document.getElementById('archiveBtn').addEventListener('click', function() {
-        // Rediriger vers la page d'archivage ou déclencher un modal
-        alert('Fonctionnalité d\'archivage à implémenter');
-    });
 });
 </script>
 {% endblock %}

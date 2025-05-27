@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load survey_extras %}
 
 {% block title %}Détails de la réponse - Sondage App{% endblock %}
 
@@ -80,9 +81,16 @@
                     {% elif answer.question.question_type == 'scale' %}
                         {% if answer.scale_answer %}
                             <div class="d-flex align-items-center">
-                                <div class="me-2">{{ answer.scale_answer }} / 5</div>
-                                <div class="progress" style="height: 20px; width: 200px;">
-                                    <div class="progress-bar" role="progressbar" style="width: {{ answer.scale_answer|mul:20 }}%;" aria-valuenow="{{ answer.scale_answer }}" aria-valuemin="1" aria-valuemax="5">{{ answer.scale_answer }}</div>
+                                <div class="me-2">{{ answer.scale_answer }} / {{ answer.question.scale_max }}</div>
+                                <div class="progress w-50">
+                                    <div class="progress-bar" 
+                                         role="progressbar" 
+                                         aria-valuenow="{{ answer.scale_answer }}" 
+                                         aria-valuemin="{{ answer.question.scale_min }}" 
+                                         aria-valuemax="{{ answer.question.scale_max }}" 
+                                         style="width: {% widthratio answer.scale_answer answer.question.scale_max 100 %}%;">
+                                        {{ answer.scale_answer }}
+                                    </div>
                                 </div>
                             </div>
                         {% else %}

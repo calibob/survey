@@ -9,6 +9,8 @@ urlpatterns = [
     
     # Tableau de bord administrateur
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
+    path('dashboard/export/', views.DashboardExportView.as_view(), name='dashboard_export'),
+    path('dashboard/archive/', views.BulkArchiveSurveyView.as_view(), name='bulk_archive'),
     
     # Gestion des sondages
     path('surveys/', views.SurveyListView.as_view(), name='survey_list'),

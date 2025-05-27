@@ -17,6 +17,7 @@ class Survey(models.Model):
     is_published = models.BooleanField(default=False, verbose_name="Publié")
     
     # Personnalisation (Étape 2)
+    theme = models.ForeignKey('SurveyTheme', on_delete=models.SET_NULL, null=True, blank=True, related_name='surveys', verbose_name="Thème")
     primary_color = ColorField(default='#007bff', verbose_name="Couleur principale")
     background_color = ColorField(default='#ffffff', verbose_name="Couleur d'arrière-plan")
     logo = models.ImageField(upload_to='survey_logos/', blank=True, null=True, verbose_name="Logo")

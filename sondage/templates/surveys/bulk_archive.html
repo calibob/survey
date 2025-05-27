@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Archivage en masse - Sondage App{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Archivage de sondages</h1>
+        <a href="{% url 'surveys:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour au tableau de bord
+        </a>
+    </div>
+    
+    <div class="card shadow mb-4">
+        <div class="card-header bg-warning text-white">
+            <h5 class="mb-0"><i class="fas fa-archive me-2"></i> Critères d'archivage</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-4">
+                Cette fonctionnalité vous permet d'archiver automatiquement plusieurs sondages selon différents critères.
+                Les sondages archivés ne seront plus affichés dans votre liste principale mais resteront accessibles dans la section "Archivés".
+            </p>
+            
+            <form method="post" action="{% url 'surveys:bulk_archive' %}">
+                {% csrf_token %}
+                
+                <div class="list-group mb-4">
+                    <label class="list-group-item d-flex gap-2">
+                        <input class="form-check-input flex-shrink-0" type="radio" name="archive_type" value="inactive" checked>
+                        <span>
+                            <strong>Sondages inactifs</strong>
+                            <small class="d-block text-muted">Sondages dont la date de fin est passée</small>
+                            <span class="badge bg-warning text-dark">{{ inactive_count }} sondage(s)</span>
+                        </span>
+                    </label>
+                    
+                    <label class="list-group-item d-flex gap-2">
+                        <input class="form-check-input flex-shrink-0" type="radio" name="archive_type" value="no_response">
+                        <span>
+                            <strong>Sondages sans réponses</strong>
+                            <small class="d-block text-muted">Sondages sans réponses créés il y a plus de 30 jours</small>
+                            <span class="badge bg-warning text-dark">{{ no_response_count }} sondage(s)</span>
+                        </span>
+                    </label>
+                    
+                    <label class="list-group-item d-flex gap-2">
+                        <input class="form-check-input flex-shrink-0" type="radio" name="archive_type" value="old">
+                        <span>
+                            <strong>Anciens sondages</strong>
+                            <small class="d-block text-muted">Sondages créés il y a plus de 90 jours</small>
+                            <span class="badge bg-warning text-dark">{{ old_surveys_count }} sondage(s)</span>
+                        </span>
+                    </label>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> L'archivage des sondages est réversible. Vous pourrez toujours désarchiver vos sondages individuellement.
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a href="{% url 'surveys:dashboard' %}" class="btn btn-outline-secondary">Annuler</a>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-archive me-1"></i> Archiver les sondages
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

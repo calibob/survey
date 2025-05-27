@@ -1,6 +1,7 @@
 import json
 import uuid
 import re
+import csv
 from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 from statistics import mean, median, mode
@@ -250,6 +251,11 @@ class SurveyCreateView(LoginRequiredMixin, CreateView):
     template_name = 'surveys/survey_form.html'
     success_url = reverse_lazy('surveys:survey_list')
     
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['themes'] = SurveyTheme.objects.filter(is_public=True) | SurveyTheme.objects.filter(author=self.request.user)
@@ -266,6 +272,11 @@ class SurveyUpdateView(LoginRequiredMixin, UpdateView):
     model = Survey
     form_class = SurveyForm
     template_name = 'surveys/survey_form.html'
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
     
     def get_queryset(self):
         return Survey.objects.filter(author=self.request.user)
@@ -312,6 +323,195 @@ class SurveyDetailView(DetailView):
         
         return context
 
+class SurveyResultsView(LoginRequiredMixin, DetailView):
+    model = Survey
+    template_name = 'surveys/survey_results.html'
+    context_object_name = 'survey'
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.survey = get_object_or_404(Survey, pk=self.kwargs['pk'], author=request.user)
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        survey = self.get_object()
+        
+        # Vérifier que l'utilisateur est bien l'auteur du sondage
+        if survey.author != self.request.user:
+            raise PermissionDenied("Vous n'êtes pas autorisé à voir les résultats de ce sondage.")
+        
+        # Récupérer toutes les réponses
+        responses = survey.responses.all()
+        total_responses = responses.count()
+        context['total_responses'] = total_responses
+        
+        if total_responses == 0:
+            context['no_data'] = True
+            return context
+        
+        # Calculer le taux de complétion
+        completed_responses = responses.filter(is_complete=True).count()
+        context['completion_rate'] = round((completed_responses / total_responses) * 100) if total_responses > 0 else 0
+        
+        # Préparation des données pour chaque question
+        questions_data = []
+        survey_questions = survey.questions.all().order_by('order')
+        context['questions'] = survey_questions
+        context['has_question_filters'] = True if survey_questions.count() > 0 else False
+        
+        # Traiter chaque question
+        for question in survey_questions:
+            question_data = {
+                'id': question.id,
+                'text': question.text,
+                'type': question.question_type,
+                'required': question.required,
+                'answers': [],
+                'options': [],
+                'answer_count': 0
+            }
+            
+            # Récupérer les réponses pour cette question
+            answers = SurveyAnswer.objects.filter(question=question, response__survey=survey)
+            question.answer_count = answers.count()  # Ajouter le nombre de réponses à l'objet question
+            
+            if question.question_type in ['single', 'multiple']:
+                # Récupérer les options de la question
+                options = question.options.all().order_by('order')
+                
+                # Préparer les données pour le graphique
+                option_labels = [opt.text for opt in options]
+                option_counts = []
+                
+                for option in options:
+                    # Compter les réponses pour cette option
+                    count = answers.filter(selected_options=option).count()
+                    option_counts.append(count)
+                    
+                    # Ajouter l'option avec ses statistiques
+                    question_data['options'].append({
+                        'id': option.id,
+                        'text': option.text,
+                        'count': count,
+                        'percentage': round((count / question.answer_count) * 100) if question.answer_count > 0 else 0
+                    })
+                
+                # Ajouter les données pour le graphique
+                question_data['chart_data'] = {
+                    'labels': option_labels,
+                    'counts': option_counts
+                }
+                
+            elif question.question_type == 'text':
+                # Récupérer toutes les réponses textuelles
+                text_responses = []
+                for answer in answers:
+                    if answer.response_text:
+                        text_responses.append(answer.response_text)
+                
+                question_data['text_responses'] = text_responses
+                
+            elif question.question_type == 'number':
+                # Récupérer les réponses numériques
+                number_values = []
+                for answer in answers:
+                    try:
+                        if answer.response_text:
+                            value = float(answer.response_text)
+                            number_values.append(value)
+                    except (ValueError, TypeError):
+                        pass
+                
+                if number_values:
+                    # Calculer les statistiques de base
+                    avg_value = sum(number_values) / len(number_values)
+                    min_value = min(number_values)
+                    max_value = max(number_values)
+                    
+                    question_data['number_stats'] = {
+                        'average': round(avg_value, 2),
+                        'min': min_value,
+                        'max': max_value,
+                        'count': len(number_values)
+                    }
+                    
+                    # Créer des tranches pour l'histogramme
+                    if len(number_values) > 1:
+                        range_size = (max_value - min_value) / 5  # Diviser en 5 tranches
+                        ranges = []
+                        
+                        for i in range(5):
+                            start = min_value + (i * range_size)
+                            end = min_value + ((i + 1) * range_size)
+                            
+                            # Pour la dernière tranche, inclure la valeur max
+                            if i == 4:
+                                count = sum(1 for v in number_values if start <= v <= end)
+                            else:
+                                count = sum(1 for v in number_values if start <= v < end)
+                            
+                            ranges.append({
+                                'label': f"{round(start, 1)} - {round(end, 1)}",
+                                'count': count
+                            })
+                        
+                        question_data['number_ranges'] = ranges
+                
+            elif question.question_type == 'scale':
+                # Récupérer les valeurs d'échelle
+                scale_values = []
+                for answer in answers:
+                    try:
+                        if answer.response_text:
+                            value = int(answer.response_text)
+                            scale_values.append(value)
+                    except (ValueError, TypeError):
+                        pass
+                
+                if scale_values:
+                    # Calculer les statistiques
+                    avg_scale = sum(scale_values) / len(scale_values)
+                    
+                    # Compter les occurrences de chaque valeur
+                    scale_counts = {}
+                    for val in range(question.scale_min, question.scale_max + 1):
+                        scale_counts[val] = scale_values.count(val)
+                    
+                    question_data['scale_stats'] = {
+                        'average': round(avg_scale, 1),
+                        'min': question.scale_min,
+                        'max': question.scale_max,
+                        'min_label': question.scale_min_label,
+                        'max_label': question.scale_max_label,
+                        'counts': scale_counts
+                    }
+            
+            questions_data.append(question_data)
+        
+        # Mettre à disposition les données pour JavaScript
+        context['questions_data_json'] = json.dumps(questions_data)
+        
+        # Préparer les données pour les graphiques de l'aperçu
+        dates = []
+        response_counts = []
+        
+        # Récupérer les derniers 30 jours de données
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=30)
+        date_range = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
+        
+        for date in date_range:
+            date_responses = responses.filter(submitted_at__date=date).count()
+            dates.append(date.strftime('%d/%m'))
+            response_counts.append(date_responses)
+        
+        context['response_timeline'] = {
+            'dates': dates,
+            'counts': response_counts
+        }
+        
+        return context
+
 class SurveyDeleteView(LoginRequiredMixin, DeleteView):
     model = Survey
     template_name = 'surveys/survey_confirm_delete.html'
@@ -350,6 +550,85 @@ class ArchiveSurveyView(LoginRequiredMixin, View):
         # Rediriger vers la page précédente ou la liste des sondages
         next_url = request.POST.get('next', reverse('surveys:survey_list'))
         return HttpResponseRedirect(next_url)
+
+
+class BulkArchiveSurveyView(LoginRequiredMixin, View):
+    """
+    Vue permettant d'archiver en masse les sondages inactifs.
+    Cette fonctionnalité aide à maintenir le tableau de bord organisé en archivant
+    automatiquement les sondages terminés ou inactifs selon différents critères.
+    """
+    
+    def get(self, request):
+        # Afficher la page de sélection des critères d'archivage
+        context = {
+            'inactive_count': Survey.objects.filter(
+                author=request.user, 
+                is_archived=False,
+                end_date__lt=timezone.now()
+            ).count(),
+            'no_response_count': Survey.objects.filter(
+                author=request.user,
+                is_archived=False,
+                responses__isnull=True,
+                created_at__lt=timezone.now() - timedelta(days=30)
+            ).distinct().count(),
+            'old_surveys_count': Survey.objects.filter(
+                author=request.user,
+                is_archived=False,
+                created_at__lt=timezone.now() - timedelta(days=90)
+            ).count(),
+        }
+        return render(request, 'surveys/bulk_archive.html', context)
+    
+    def post(self, request):
+        archive_type = request.POST.get('archive_type', 'inactive')
+        archived_count = 0
+        
+        # Identifier les sondages à archiver selon le critère sélectionné
+        if archive_type == 'inactive':
+            # Archiver les sondages dont la date de fin est passée
+            surveys_to_archive = Survey.objects.filter(
+                author=request.user,
+                is_archived=False,
+                end_date__lt=timezone.now()
+            )
+            message = "Les sondages dont la date de fin est passée ont été archivés."
+            
+        elif archive_type == 'no_response':
+            # Archiver les sondages sans réponses vieux de plus de 30 jours
+            surveys_to_archive = Survey.objects.filter(
+                author=request.user,
+                is_archived=False,
+                responses__isnull=True,
+                created_at__lt=timezone.now() - timedelta(days=30)
+            ).distinct()
+            message = "Les sondages sans réponses vieux de plus de 30 jours ont été archivés."
+            
+        elif archive_type == 'old':
+            # Archiver les sondages vieux de plus de 90 jours
+            surveys_to_archive = Survey.objects.filter(
+                author=request.user,
+                is_archived=False,
+                created_at__lt=timezone.now() - timedelta(days=90)
+            )
+            message = "Les sondages vieux de plus de 90 jours ont été archivés."
+            
+        else:
+            # Option non valide
+            messages.error(request, "Option d'archivage non reconnue.")
+            return redirect('surveys:dashboard')
+        
+        # Effectuer l'archivage en masse
+        archived_count = surveys_to_archive.count()
+        if archived_count > 0:
+            now = timezone.now()
+            surveys_to_archive.update(is_archived=True, archived_at=now)
+            messages.success(request, f"{message} ({archived_count} sondage{'s' if archived_count > 1 else ''})")
+        else:
+            messages.info(request, "Aucun sondage ne correspond aux critères d'archivage sélectionnés.")
+        
+        return redirect('surveys:dashboard')
 
 # Vues pour les questions
 @login_required
@@ -942,11 +1221,222 @@ class PageBreakDeleteView(LoginRequiredMixin, DeleteView):
         # Limiter aux sauts de page des sondages de l'utilisateur
         return SurveyPageBreak.objects.filter(survey__author=self.request.user)
 
-# Vue pour l'exportation des résultats
+# Vue pour l'exportation du sondage au format JSON/CSV/Excel
 class SurveyExportView(LoginRequiredMixin, FormView):
     template_name = 'surveys/survey_export.html'
     form_class = ImportExportForm
     
+    def dispatch(self, request, *args, **kwargs):
+        self.survey = get_object_or_404(Survey, pk=kwargs['pk'])
+        
+        # Vérifier que l'utilisateur est bien le propriétaire du sondage
+        if self.survey.author != request.user:
+            raise PermissionDenied("Vous n'êtes pas autorisé à exporter ce sondage.")
+            
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['survey'] = self.survey
+        return context
+    
+    def form_valid(self, form):
+        format_type = form.cleaned_data['format_type']
+        include_responses = form.cleaned_data.get('include_responses', True)
+        
+        # Si le format est CSV, nous traitons spécialement
+        if format_type == 'csv' and include_responses:
+            return self.export_csv()
+            
+        # Préparer les données pour l'exportation JSON
+        data = {
+            'survey': {
+                'id': self.survey.id,
+                'title': self.survey.title,
+                'description': self.survey.description,
+                'created_at': self.survey.created_at.isoformat(),
+            },
+            'questions': []
+        }
+        
+        # Ajouter les questions
+        for question in self.survey.questions.all().order_by('order'):
+            q_data = {
+                'id': question.id,
+                'text': question.text,
+                'type': question.question_type,
+                'required': question.required,
+                'order': question.order,
+                'options': []
+            }
+            
+            # Ajouter les options si applicable
+            if question.question_type in ['single', 'multiple']:
+                for option in question.options.all().order_by('order'):
+                    q_data['options'].append({
+                        'id': option.id,
+                        'text': option.text,
+                        'order': option.order
+                    })
+            
+            data['questions'].append(q_data)
+        
+        # Ajouter les réponses si demandé
+        if include_responses:
+            data['responses'] = []
+            for response in self.survey.responses.all():
+                r_data = {
+                    'id': response.id,
+                    'submitted_at': response.submitted_at.isoformat(),
+                    'ip_address': response.ip_address,
+                    'answers': []
+                }
+                
+                for answer in response.answers.all():
+                    a_data = {
+                        'question_id': answer.question.id,
+                        'question_text': answer.question.text,
+                        'value': answer.get_answer_value(),
+                    }
+                    r_data['answers'].append(a_data)
+                
+                data['responses'].append(r_data)
+        
+        # Générer le fichier JSON
+        if format_type == 'json':
+            response = HttpResponse(json.dumps(data, indent=4), content_type='application/json')
+            response['Content-Disposition'] = f'attachment; filename="{self.survey.slug}_{timezone.now().strftime("%Y%m%d")}.json"'
+            return response
+        elif format_type == 'excel':
+            # Recommandation pour implémenter l'export Excel plus tard
+            messages.warning(self.request, "L'exportation Excel sera disponible prochainement.")
+            return redirect('surveys:survey_detail', pk=self.survey.pk)
+        
+        messages.error(self.request, "Format d'exportation non pris en charge.")
+        return redirect('surveys:survey_detail', pk=self.survey.pk)
+    
+    def export_csv(self):
+        """Exporte les réponses du sondage au format CSV"""
+        # Préparer la réponse HTTP pour le CSV
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{self.survey.slug}_{timezone.now().strftime("%Y%m%d")}.csv"'
+        
+        # Définir les options de formatage CSV
+        response.write('\ufeff'.encode('utf-8'))  # BOM pour Excel
+        writer = csv.writer(response)
+        
+        # Récupérer toutes les questions du sondage dans l'ordre
+        questions = list(self.survey.questions.all().order_by('order'))
+        
+        # Préparer l'en-tête du CSV
+        header = ['ID Réponse', 'Participant', 'Date de soumission']
+        
+        # Ajouter les questions à l'en-tête
+        for question in questions:
+            header.append(question.text)
+        
+        writer.writerow(header)
+        
+        # Ajouter les réponses
+        for response in self.survey.responses.all().order_by('-submitted_at'):
+            # Initialiser la ligne avec les informations de base de la réponse
+            participant = response.user.username if response.user else "Anonyme"
+            row = [response.id, participant, response.submitted_at.strftime("%Y-%m-%d %H:%M")]
+            
+            # Dictionnaire pour stocker les réponses par question_id
+            answers_dict = {}
+            for answer in response.answers.all():
+                answers_dict[answer.question_id] = answer
+                
+            # Ajouter les réponses dans l'ordre des questions
+            for question in questions:
+                answer = answers_dict.get(question.id)
+                if answer:
+                    if question.question_type == 'multiple':
+                        # Pour les choix multiples, nous devons traiter différemment
+                        selected_options = answer.selected_options.all() if hasattr(answer, 'selected_options') else []
+                        value = ", ".join([opt.text for opt in selected_options]) if selected_options else answer.get_answer_value()
+                    else:
+                        value = answer.get_answer_value()
+                        
+                    # Pour les échelles, afficher la valeur et éventuellement les étiquettes
+                    if question.question_type == 'scale' and value is not None:
+                        if question.scale_min_label and question.scale_max_label:
+                            scale_range = question.scale_max - question.scale_min
+                            if scale_range > 0:
+                                normalized = (value - question.scale_min) / scale_range
+                                value = f"{value} ({question.scale_min_label} → {question.scale_max_label})"
+                else:
+                    value = 'Pas de réponse'
+                
+                row.append(value)
+            
+            writer.writerow(row)
+        
+        return response
+
+
+# Vue pour l'exportation de toutes les données du tableau de bord
+class DashboardExportView(LoginRequiredMixin, View):
+    
+    def get(self, request, *args, **kwargs):
+        """Exporte toutes les données des sondages de l'utilisateur au format CSV"""
+        user = request.user
+        format_type = request.GET.get('format', 'csv')
+        
+        if format_type == 'csv':
+            # Préparer la réponse HTTP pour le CSV
+            http_response = HttpResponse(content_type='text/csv')
+            http_response['Content-Disposition'] = f'attachment; filename="all_surveys_data_{timezone.now().strftime("%Y%m%d")}.csv"'
+            
+            # Définir les options de formatage CSV
+            http_response.write('\ufeff'.encode('utf-8'))  # BOM pour Excel
+            writer = csv.writer(http_response)
+            
+            # En-tête du fichier CSV global
+            header = ['Sondage', 'ID Réponse', 'Participant', 'Date de soumission', 'Question', 'Type', 'Réponse']
+            writer.writerow(header)
+            
+            # Récupérer tous les sondages de l'utilisateur
+            surveys = Survey.objects.filter(author=user).order_by('-created_at')
+            
+            # Pour chaque sondage, ajouter ses réponses
+            for survey in surveys:
+                for survey_response in survey.responses.all().order_by('-submitted_at'):
+                    participant = survey_response.user.username if survey_response.user else "Anonyme"
+                    
+                    # Pour chaque réponse, ajouter une ligne par question/réponse
+                    for answer in survey_response.answers.all():
+                        question = answer.question
+                        
+                        # Déterminer la valeur de la réponse selon le type de question
+                        if question.question_type == 'single' or question.question_type == 'multiple':
+                            if answer.selected_option:
+                                value = answer.selected_option.text
+                            else:
+                                value = 'Pas de réponse'
+                        elif question.question_type == 'scale':
+                            value = str(answer.scale_answer) if answer.scale_answer is not None else 'Pas de réponse'
+                        else:  # text, email, date, number
+                            value = answer.text_answer if answer.text_answer else 'Pas de réponse'
+                        
+                        # Écrire la ligne
+                        writer.writerow([
+                            survey.title,
+                            survey_response.id,
+                            participant,
+                            survey_response.submitted_at.strftime("%Y-%m-%d %H:%M"),
+                            question.text,
+                            question.get_question_type_display(),
+                            value
+                        ])
+            
+            return http_response
+        
+        # Format non supporté
+        messages.error(request, "Format d'exportation non pris en charge.")
+        return redirect('surveys:dashboard')
+        
 # Vue pour l'affichage des résultats d'un sondage
 class SurveyResultsView(LoginRequiredMixin, DetailView):
     model = Survey
